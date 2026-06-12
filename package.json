@@ -1,0 +1,29 @@
+{
+  "name": "md2html",
+  "version": "1.0.0",
+  "description": "A small TypeScript CLI that converts Markdown files to styled HTML.",
+  "type": "module",
+  "bin": {
+    "md2html": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "markdown",
+    "html",
+    "cli"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

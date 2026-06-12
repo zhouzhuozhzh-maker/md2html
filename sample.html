@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>sample</title>
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #f7f8fa;
+  --text: #1f2933;
+  --muted: #596579;
+  --border: #d8dee8;
+  --code-bg: #eef2f7;
+  --link: #0b66c3;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.65;
+}
+
+main {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 48px 24px 72px;
+  background: #fff;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.25;
+  margin: 1.6em 0 0.65em;
+}
+
+h1 {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3em;
+}
+
+p, ul, ol, pre, blockquote {
+  margin: 0 0 1em;
+}
+
+a {
+  color: var(--link);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+code {
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 0.15em 0.35em;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.92em;
+}
+
+pre {
+  overflow-x: auto;
+  background: #111827;
+  color: #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+blockquote {
+  border-left: 4px solid var(--border);
+  color: var(--muted);
+  padding-left: 1em;
+}
+  </style>
+</head>
+<body>
+  <main>
+<h1>Sample Document</h1>
+<p>This is a paragraph with a <a href="https://openai.com">link to OpenAI</a> and some <code>inline code</code>.</p>
+<h2>Lists</h2>
+<ul>
+<li>Item one</li>
+<li>Item two</li>
+<li>Item three</li>
+</ul>
+<ol>
+<li>First ordered item</li>
+<li>Second ordered item</li>
+<li>Third ordered item</li>
+</ol>
+<h2>Code Block</h2>
+<pre><code class="language-js">function greet(name) {
+  console.log(`Hello, ${name}!`);
+}
+
+greet(&quot;world&quot;);</code></pre>
+<h2>Image</h2>
+<p><img src="https://via.placeholder.com/640x360.png?text=Sample+Image" alt="Sample image"></p>
+  </main>
+</body>
+</html>
