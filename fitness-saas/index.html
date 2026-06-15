@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FitRank Team</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <section class="auth-screen" id="authScreen">
+      <div class="auth-card">
+        <div class="brand auth-brand">
+          <span class="brand-mark">F</span>
+          <div>
+            <strong>FitRank Team</strong>
+            <small>创建你的健康竞赛账号</small>
+          </div>
+        </div>
+        <h1>注册后开始记录体测、饮食和运动</h1>
+        <p>当前版本使用浏览器本地存储保存账号和记录，部署上线后可继续接入真实数据库和登录系统。</p>
+        <form id="registerForm" class="auth-form">
+          <label>用户 ID<input type="text" name="id" placeholder="例如 zhou001" required /></label>
+          <label>昵称<input type="text" name="name" placeholder="你的昵称" required /></label>
+          <label>角色/部门<input type="text" name="role" placeholder="例如 研发、产品、运营" /></label>
+          <button class="primary" type="submit">注册并进入</button>
+        </form>
+      </div>
+    </section>
+
+    <div class="app-shell hidden" id="appShell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">F</span>
+          <div>
+            <strong>FitRank Team</strong>
+            <small>团队热量与运动竞赛</small>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="dashboard">仪表盘</button>
+          <button class="nav-item" data-view="body">体测信息</button>
+          <button class="nav-item" data-view="food">摄入记录</button>
+          <button class="nav-item" data-view="workout">运动记录</button>
+          <button class="nav-item" data-view="ranking">排行榜</button>
+          <button class="nav-item" data-view="group">健身小组</button>
+          <button class="nav-item" data-view="game">激励小游戏</button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">SaaS MVP</p>
+            <h1>热量、运动与团队排名工作台</h1>
+          </div>
+          <div class="user-switcher">
+            <label for="activeUser">当前用户</label>
+            <select id="activeUser"></select>
+          </div>
+        </header>
+
+        <section class="view active" id="dashboard">
+          <div class="hero-panel">
+            <div>
+              <p class="eyebrow">今日状态</p>
+              <h2 id="dailyHeadline">准备记录今天的数据</h2>
+              <p id="dailySummary">上传食物、运动和体测信息后，这里会显示净热量与排名表现。</p>
+              <div class="hero-actions">
+                <button class="primary" data-jump="food">记录摄入</button>
+                <button class="secondary" data-jump="workout">记录运动</button>
+              </div>
+            </div>
+            <div class="signal-board" aria-label="今日热量概览">
+              <div class="signal-ring">
+                <span id="netCalories">0</span>
+                <small>净热量</small>
+              </div>
+              <div class="mini-metrics">
+                <span><strong id="todayIn">0</strong> 摄入 kcal</span>
+                <span><strong id="todayOut">0</strong> 消耗 kcal</span>
+                <span><strong id="todayScore">0</strong> 积分</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid two">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>最近记录</h3>
+                <button class="ghost" id="clearToday">清空今日</button>
+              </div>
+              <div id="recentFeed" class="feed"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h3>本周小组排行</h3>
+                <span id="groupBadge" class="pill">默认小组</span>
+              </div>
+              <div id="dashboardRanking" class="ranking-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="body">
+          <section class="panel form-panel">
+            <div class="panel-head">
+              <h3>上传体测信息</h3>
+              <span class="pill">每人独立档案</span>
+            </div>
+            <form id="bodyForm" class="form-grid">
+              <label>日期<input type="date" name="date" required /></label>
+              <label>体重 kg<input type="number" name="weight" min="20" max="250" step="0.1" required /></label>
+              <label>体脂 %<input type="number" name="bodyFat" min="3" max="70" step="0.1" /></label>
+              <label>腰围 cm<input type="number" name="waist" min="30" max="200" step="0.1" /></label>
+              <label>备注<input type="text" name="note" placeholder="如：晨起空腹、体测仪型号" /></label>
+              <button class="primary" type="submit">保存体测</button>
+            </form>
+          </section>
+          <section class="panel">
+            <h3>体测趋势</h3>
+            <div id="bodyList" class="table-list"></div>
+          </section>
+        </section>
+
+        <section class="view" id="food">
+          <section class="panel form-panel">
+            <div class="panel-head">
+              <h3>拍照记录摄入食品</h3>
+              <span class="pill">支持图片留档</span>
+            </div>
+            <form id="foodForm" class="form-grid">
+              <label>日期<input type="date" name="date" required /></label>
+              <label>食品名称<input type="text" name="name" placeholder="例如：午餐主菜" required /></label>
+              <label>热量 kcal<input type="number" name="calories" min="0" step="1" required /></label>
+              <label>餐次<select name="meal"><option>早餐</option><option>午餐</option><option>晚餐</option><option>加餐</option></select></label>
+              <label class="file-input">食品照片<input type="file" name="photo" accept="image/*" /></label>
+              <button class="primary" type="submit">保存摄入</button>
+            </form>
+          </section>
+          <section class="panel">
+            <h3>摄入记录</h3>
+            <div id="foodList" class="photo-grid"></div>
+          </section>
+        </section>
+
+        <section class="view" id="workout">
+          <section class="panel form-panel">
+            <div class="panel-head">
+              <h3>上传运动记录</h3>
+              <span class="pill">Apple 运动截图 / 手动录入</span>
+            </div>
+            <form id="workoutForm" class="form-grid">
+              <label>日期<input type="date" name="date" required /></label>
+              <label>项目<input type="text" name="activity" placeholder="跑步、力量训练、骑行" /></label>
+              <label>时长 分钟<input type="number" name="minutes" min="0" step="1" /></label>
+              <label>消耗 kcal<input type="number" name="calories" min="0" step="1" required /></label>
+              <label class="file-input">运动截图<input type="file" name="photo" accept="image/*" /></label>
+              <button class="primary" type="submit">保存运动</button>
+            </form>
+          </section>
+          <section class="panel">
+            <h3>运动记录</h3>
+            <div id="workoutList" class="photo-grid"></div>
+          </section>
+        </section>
+
+        <section class="view" id="ranking">
+          <section class="panel">
+            <div class="panel-head">
+              <h3>周期排行榜</h3>
+              <div class="segmented" id="periodTabs">
+                <button class="active" data-period="day">天</button>
+                <button data-period="week">周</button>
+                <button data-period="month">月</button>
+                <button data-period="quarter">季度</button>
+              </div>
+            </div>
+            <div id="rankingList" class="ranking-list large"></div>
+          </section>
+        </section>
+
+        <section class="view" id="group">
+          <section class="panel">
+            <div class="panel-head">
+              <h3>搜索用户 ID 组成健身小组</h3>
+              <span class="pill" id="memberCount">0 人</span>
+            </div>
+            <div class="search-row">
+              <input id="userSearch" type="search" placeholder="搜索用户 ID，如 teammate01" />
+              <button class="primary" id="addUser">加入小组</button>
+            </div>
+            <div id="searchResult" class="search-result"></div>
+            <div id="groupMembers" class="member-grid"></div>
+          </section>
+        </section>
+
+        <section class="view" id="game">
+          <div class="grid two">
+            <section class="panel game-card">
+              <div class="panel-head">
+                <h3>今日任务抽签</h3>
+                <span class="pill" id="streakPill">连续 0 天</span>
+              </div>
+              <div class="challenge" id="challengeText">点击抽签生成一个今天的小挑战。</div>
+              <button class="primary" id="drawChallenge">抽取挑战</button>
+              <button class="secondary" id="completeChallenge">完成挑战</button>
+            </section>
+            <section class="panel game-card">
+              <div class="panel-head">
+                <h3>热量护城河</h3>
+                <span class="pill">减少摄入也能得分</span>
+              </div>
+              <div class="castle">
+                <div id="castleWall"></div>
+              </div>
+              <p id="gameHint">当日净热量越低，防线越高；完成挑战会增加额外积分。</p>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>
