@@ -389,16 +389,28 @@ function renderTrendChart() {
 }
 
 function rankingRows(users) {
-  return users.map((user, index) => `
-    <div class="rank-row">
+  if (!users.length) {
+    return `<div class="rank-row empty-rank"><span>暂无排名数据</span><small>上传基础代谢、摄入和运动后开始排名</small></div>`;
+  }
+
+  return users.map((user, index) => {
+    const rate = Math.round(user.totals.deficitRate * 100);
+    const medal = index === 0 ? "领跑" : index === 1 ? "追击" : index === 2 ? "冲刺" : "上榜";
+    const avatar = user.avatar
+      ? `<img src="${user.avatar}" alt="${escapeHtml(user.name)}">`
+      : escapeHtml(user.name.slice(0, 1) || "F");
+    return `
+    <div class="rank-row" style="--rank-delay:${index * 55}ms">
       <span class="place">${index + 1}</span>
+      <span class="rank-avatar">${avatar}</span>
       <span class="rank-main">
-        <strong>${escapeHtml(user.name)} · ${escapeHtml(user.id)}</strong>
-        <small>基础代谢 ${user.totals.bmr || 0} kcal · 缺口 ${user.totals.deficit} kcal · 缺口率 ${Math.round(user.totals.deficitRate * 100)}%</small>
+        <strong>${escapeHtml(user.name)} <em>${escapeHtml(medal)}</em></strong>
+        <small>${escapeHtml(user.id)} · 基础代谢 ${user.totals.bmr || 0} kcal · 缺口 ${user.totals.deficit} kcal</small>
       </span>
-      <span class="rank-score">${Math.round(user.totals.deficitRate * 100)}%</span>
+      <span class="rank-score">${rate}%</span>
     </div>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderGroup() {
