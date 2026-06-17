@@ -1,13 +1,13 @@
 const today = new Date().toISOString().slice(0, 10);
-const storageKey = "fitrank-team-state-v2";
+const storageKey = "fitrank-team-state-v3";
 
 const challenges = [
-  "晚饭主食减半，并补 20 分钟步行",
-  "今天完成 3 组核心训练",
-  "只喝无糖饮料，拍照记录三餐",
-  "午后走楼梯 10 分钟",
-  "睡前拉伸 12 分钟",
-  "今日净热量控制在 500 kcal 内"
+  "今天把缺口率做到 20% 以上",
+  "晚餐把摄入压到基础代谢以下 60%",
+  "补 30 分钟运动，把缺口率再抬高一点",
+  "今天所有加餐只保留一次，守住缺口",
+  "把一顿高热量餐换成轻食，争取提升排名",
+  "完成一次 40 分钟有氧，让缺口率突破赛季均值"
 ];
 
 const state = loadState();
@@ -60,11 +60,25 @@ function daysBetween(a, b) {
 function userTotals(userId, period = "day") {
   const foods = state.foods.filter((item) => item.userId === userId && samePeriod(item.date, period));
   const workouts = state.workouts.filter((item) => item.userId === userId && samePeriod(item.date, period));
+  const body = [...state.body].filter((item) => item.userId === userId).sort((a, b) => b.date.localeCompare(a.date))[0];
+  const bmr = Number(body?.bmr || 0);
   const intake = foods.reduce((sum, item) => sum + Number(item.calories || 0), 0);
   const burned = workouts.reduce((sum, item) => sum + Number(item.calories || 0), 0);
-  const challengeBonus = state.completedChallenges[`${userId}:${today}`] ? 120 : 0;
-  const score = Math.max(0, burned - Math.floor(intake * 0.35)) + challengeBonus;
-  return { intake, burned, net: intake - burned, score, foodCount: foods.length, workoutCount: workouts.length };
+  const deficit = Math.max(0, bmr + burned - intake);
+  const deficitRate = bmr > 0 ? deficit / bmr : 0;
+  const challengeBonus = state.completedChallenges[`${userId}:${today}`] ? 0.03 : 0;
+  const adjustedRate = Math.max(0, deficitRate + challengeBonus);
+  const net = intake - burned;
+  return {
+    intake,
+    burned,
+    net,
+    bmr,
+    deficit,
+    deficitRate: adjustedRate,
+    foodCount: foods.length,
+    workoutCount: workouts.length
+  };
 }
 
 function rankedUsers(period = "week") {
@@ -72,7 +86,7 @@ function rankedUsers(period = "week") {
   return state.users
     .filter((user) => groupIds.has(user.id))
     .map((user) => ({ ...user, totals: userTotals(user.id, period) }))
-    .sort((a, b) => b.totals.score - a.totals.score);
+    .sort((a, b) => b.totals.deficitRate - a.totals.deficitRate);
 }
 
 async function readFileAsDataUrl(file) {
@@ -111,15 +125,18 @@ function renderDashboard() {
   const user = activeUser();
   if (!user) return;
   const totals = userTotals(user.id, "day");
-  $("#dailyHeadline").textContent =
-    totals.net <= 0 ? `${user.name} 今天已经形成热量缺口` : `${user.name} 今天还可以继续运动`;
+  $("#dailyHeadline").textContent = totals.bmr
+    ? `${user.name} 当前缺口率 ${Math.round(totals.deficitRate * 100)}%`
+    : `${user.name} 还没有基础代谢数据`;
   $("#dailySummary").textContent =
-    `今日摄入 ${totals.intake} kcal，运动消耗 ${totals.burned} kcal，当前积分 ${totals.score}。`;
-  $("#netCalories").textContent = totals.net;
+    totals.bmr
+      ? `基础代谢 ${totals.bmr} kcal，今日摄入 ${totals.intake} kcal，运动 ${totals.burned} kcal，热量缺口 ${totals.deficit} kcal。`
+      : `先去体测页填写基础代谢，之后系统会自动计算今天的热量缺口率。`;
+  $("#deficitRate").textContent = `${Math.round(totals.deficitRate * 100)}%`;
   $("#todayIn").textContent = totals.intake;
   $("#todayOut").textContent = totals.burned;
-  $("#todayScore").textContent = totals.score;
-  $("#castleWall").style.height = `${Math.min(92, Math.max(18, 42 + totals.score / 15))}%`;
+  $("#todayDeficit").textContent = totals.deficit;
+  $("#castleWall").style.height = `${Math.min(92, Math.max(20, 20 + totals.deficitRate * 300))}%`;
 
   const feed = [
     ...state.foods.filter((item) => item.userId === user.id).map((item) => ({ type: "摄入", title: item.name, kcal: item.calories, date: item.date })),
@@ -145,11 +162,12 @@ function renderBody() {
     ? items.map((item) => `
       <div class="table-row">
         <span><strong>${item.date}</strong><br><small>${escapeHtml(item.note || "无备注")}</small></span>
+        <span>${item.bmr || "-"} kcal 基础代谢</span>
         <span>${item.weight || "-"} kg</span>
         <span>${item.bodyFat || "-"}% 体脂</span>
         <span>${item.waist || "-"} cm 腰围</span>
       </div>`).join("")
-    : `<div class="table-row"><span>暂无体测记录</span></div>`;
+    : `<div class="table-row"><span>暂无体测记录</span><small>先上传体测报告或手动填入基础代谢</small></div>`;
 }
 
 function renderFood() {
@@ -189,9 +207,9 @@ function rankingRows(users) {
       <span class="place">${index + 1}</span>
       <span class="rank-main">
         <strong>${escapeHtml(user.name)} · ${escapeHtml(user.id)}</strong>
-        <small>摄入 ${user.totals.intake} kcal · 消耗 ${user.totals.burned} kcal · 净热量 ${user.totals.net}</small>
+        <small>基础代谢 ${user.totals.bmr || 0} kcal · 缺口 ${user.totals.deficit} kcal · 缺口率 ${Math.round(user.totals.deficitRate * 100)}%</small>
       </span>
-      <span class="rank-score">${user.totals.score}</span>
+      <span class="rank-score">${Math.round(user.totals.deficitRate * 100)}%</span>
     </div>
   `).join("");
 }
@@ -205,15 +223,17 @@ function renderGroup() {
       <div class="avatar">${escapeHtml(user.name.slice(0, 1))}</div>
       <strong>${escapeHtml(user.name)}</strong>
       <small>${escapeHtml(user.id)} · ${escapeHtml(user.role)}</small>
-      <p>本周 ${totals.score} 分</p>
+      <p>本周缺口率 ${Math.round(totals.deficitRate * 100)}%</p>
     </div>`;
   }).join("");
 }
 
 function renderGame() {
   const completed = state.completedChallenges[`${state.activeUserId}:${today}`];
-  $("#challengeText").textContent = state.currentChallenge || "点击抽签生成一个今天的小挑战。";
-  $("#streakPill").textContent = completed ? "连续 1 天" : "连续 0 天";
+  const totals = activeUser() ? userTotals(state.activeUserId, "day") : null;
+  const rateText = totals ? `${Math.round(totals.deficitRate * 100)}%` : "0%";
+  $("#challengeText").textContent = state.currentChallenge || `点击生成一个围绕当前 ${rateText} 缺口率的挑战。`;
+  $("#streakPill").textContent = completed ? `已加成 +3%` : "今日待挑战";
 }
 
 function renderAll() {
@@ -270,7 +290,15 @@ function bindEvents() {
   $("#bodyForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.target));
-    state.body.push({ userId: state.activeUserId, ...data });
+    state.body.push({
+      userId: state.activeUserId,
+      date: data.date,
+      bmr: Number(data.bmr),
+      weight: data.weight ? Number(data.weight) : "",
+      bodyFat: data.bodyFat ? Number(data.bodyFat) : "",
+      waist: data.waist ? Number(data.waist) : "",
+      note: data.note || ""
+    });
     saveState();
     event.target.reset();
     renderAll();
@@ -330,7 +358,10 @@ function bindEvents() {
   });
 
   $("#drawChallenge").addEventListener("click", () => {
-    state.currentChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+    const totals = userTotals(state.activeUserId, "day");
+    const band = totals.deficitRate >= 0.3 ? 4 : totals.deficitRate >= 0.2 ? 3 : totals.deficitRate >= 0.1 ? 2 : 1;
+    const pool = challenges.slice(0, Math.min(challenges.length, band + 2));
+    state.currentChallenge = pool[Math.floor(Math.random() * pool.length)];
     saveState();
     renderGame();
   });

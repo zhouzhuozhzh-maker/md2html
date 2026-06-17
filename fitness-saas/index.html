@@ -8,22 +8,49 @@
   </head>
   <body>
     <section class="auth-screen" id="authScreen">
-      <div class="auth-card">
-        <div class="brand auth-brand">
-          <span class="brand-mark">F</span>
-          <div>
-            <strong>FitRank Team</strong>
-            <small>创建你的健康竞赛账号</small>
+      <div class="auth-layout">
+          <div class="auth-hero">
+          <div class="brand auth-brand">
+            <span class="brand-mark">F</span>
+            <div>
+              <strong>FitRank Team</strong>
+              <small>你的健身打卡和小组赛季</small>
+            </div>
+          </div>
+          <h1>先看基础代谢，再看每天缺口率</h1>
+          <p>先注册账号，上传体测报告或手动填写基础代谢。之后每天记录摄入和运动，系统会自动计算热量缺口，并用缺口率参与排行。</p>
+          <div class="auth-pills">
+            <span>基础代谢优先</span>
+            <span>缺口率排行</span>
+            <span>组队挑战</span>
+          </div>
+          <div class="auth-preview">
+            <div class="preview-phone">
+              <div class="preview-screen">
+                <span class="preview-dot"></span>
+                <strong>Today</strong>
+                <small>缺口率 18%</small>
+                <div class="preview-bars">
+                  <span></span><span></span><span></span><span></span><span></span>
+                </div>
+              </div>
+            </div>
+            <div class="preview-stack">
+              <div class="preview-card warm">上传体测报告，先拿到你的基础代谢</div>
+              <div class="preview-card cool">每天只比缺口率，摄入和运动都会影响结果</div>
+            </div>
           </div>
         </div>
-        <h1>注册后开始记录体测、饮食和运动</h1>
-        <p>当前版本使用浏览器本地存储保存账号和记录，部署上线后可继续接入真实数据库和登录系统。</p>
-        <form id="registerForm" class="auth-form">
-          <label>用户 ID<input type="text" name="id" placeholder="例如 zhou001" required /></label>
-          <label>昵称<input type="text" name="name" placeholder="你的昵称" required /></label>
-          <label>角色/部门<input type="text" name="role" placeholder="例如 研发、产品、运营" /></label>
-          <button class="primary" type="submit">注册并进入</button>
-        </form>
+        <div class="auth-card">
+          <h2>创建账号</h2>
+          <p>先注册一个本地用户，后续可以再接入真正的登录系统和云端数据库。</p>
+          <form id="registerForm" class="auth-form">
+            <label>用户 ID<input type="text" name="id" placeholder="例如 zhou001" required /></label>
+            <label>昵称<input type="text" name="name" placeholder="你的昵称" required /></label>
+            <label>角色/部门<input type="text" name="role" placeholder="例如 研发、产品、运营" /></label>
+            <button class="primary" type="submit">注册并进入</button>
+          </form>
+        </div>
       </div>
     </section>
 
@@ -33,52 +60,57 @@
           <span class="brand-mark">F</span>
           <div>
             <strong>FitRank Team</strong>
-            <small>团队热量与运动竞赛</small>
+            <small>个人健康赛季中心</small>
           </div>
         </div>
         <nav class="nav">
-          <button class="nav-item active" data-view="dashboard">仪表盘</button>
-          <button class="nav-item" data-view="body">体测信息</button>
-          <button class="nav-item" data-view="food">摄入记录</button>
-          <button class="nav-item" data-view="workout">运动记录</button>
-          <button class="nav-item" data-view="ranking">排行榜</button>
-          <button class="nav-item" data-view="group">健身小组</button>
-          <button class="nav-item" data-view="game">激励小游戏</button>
+          <button class="nav-item active" data-view="dashboard">今日</button>
+          <button class="nav-item" data-view="body">体测</button>
+          <button class="nav-item" data-view="food">吃了什么</button>
+          <button class="nav-item" data-view="workout">动了什么</button>
+          <button class="nav-item" data-view="ranking">赛季榜</button>
+          <button class="nav-item" data-view="group">组队</button>
+          <button class="nav-item" data-view="game">挑战</button>
         </nav>
       </aside>
 
       <main class="main">
         <header class="topbar">
           <div>
-            <p class="eyebrow">SaaS MVP</p>
-            <h1>热量、运动与团队排名工作台</h1>
+            <p class="eyebrow">Health SaaS</p>
+            <h1>热量缺口率，才是唯一排名指标</h1>
           </div>
           <div class="user-switcher">
-            <label for="activeUser">当前用户</label>
+            <label for="activeUser">切换账号</label>
             <select id="activeUser"></select>
           </div>
         </header>
 
         <section class="view active" id="dashboard">
           <div class="hero-panel">
-            <div>
-              <p class="eyebrow">今日状态</p>
-              <h2 id="dailyHeadline">准备记录今天的数据</h2>
-              <p id="dailySummary">上传食物、运动和体测信息后，这里会显示净热量与排名表现。</p>
+            <div class="hero-copy">
+              <p class="eyebrow">Daily Deficit</p>
+              <h2 id="dailyHeadline">注册后先上传基础代谢</h2>
+              <p id="dailySummary">系统会把每日摄入与运动统一换算成热量缺口，再和基础代谢做比值，作为你的核心竞争指标。</p>
               <div class="hero-actions">
-                <button class="primary" data-jump="food">记录摄入</button>
-                <button class="secondary" data-jump="workout">记录运动</button>
+                <button class="primary" data-jump="food">拍照记一餐</button>
+                <button class="secondary" data-jump="workout">记录一次运动</button>
+              </div>
+              <div class="hero-tags">
+                <span>基础代谢</span>
+                <span>热量缺口</span>
+                <span>缺口率</span>
               </div>
             </div>
             <div class="signal-board" aria-label="今日热量概览">
               <div class="signal-ring">
-                <span id="netCalories">0</span>
-                <small>净热量</small>
+                <span id="deficitRate">0%</span>
+                <small>缺口率</small>
               </div>
               <div class="mini-metrics">
                 <span><strong id="todayIn">0</strong> 摄入 kcal</span>
-                <span><strong id="todayOut">0</strong> 消耗 kcal</span>
-                <span><strong id="todayScore">0</strong> 积分</span>
+                <span><strong id="todayOut">0</strong> 运动 kcal</span>
+                <span><strong id="todayDeficit">0</strong> 缺口 kcal</span>
               </div>
             </div>
           </div>
@@ -86,15 +118,15 @@
           <div class="grid two">
             <section class="panel">
               <div class="panel-head">
-                <h3>最近记录</h3>
+                <h3>最近动态</h3>
                 <button class="ghost" id="clearToday">清空今日</button>
               </div>
               <div id="recentFeed" class="feed"></div>
             </section>
             <section class="panel">
               <div class="panel-head">
-                <h3>本周小组排行</h3>
-                <span id="groupBadge" class="pill">默认小组</span>
+                <h3>本周缺口率排行</h3>
+                <span id="groupBadge" class="pill">等待组队</span>
               </div>
               <div id="dashboardRanking" class="ranking-list"></div>
             </section>
@@ -105,15 +137,16 @@
           <section class="panel form-panel">
             <div class="panel-head">
               <h3>上传体测信息</h3>
-              <span class="pill">每人独立档案</span>
+              <span class="pill">先填基础代谢</span>
             </div>
             <form id="bodyForm" class="form-grid">
               <label>日期<input type="date" name="date" required /></label>
-              <label>体重 kg<input type="number" name="weight" min="20" max="250" step="0.1" required /></label>
+              <label>基础代谢 kcal<input type="number" name="bmr" min="500" max="5000" step="1" required /></label>
+              <label>体重 kg<input type="number" name="weight" min="20" max="250" step="0.1" /></label>
               <label>体脂 %<input type="number" name="bodyFat" min="3" max="70" step="0.1" /></label>
               <label>腰围 cm<input type="number" name="waist" min="30" max="200" step="0.1" /></label>
-              <label>备注<input type="text" name="note" placeholder="如：晨起空腹、体测仪型号" /></label>
-              <button class="primary" type="submit">保存体测</button>
+              <label>体测备注<input type="text" name="note" placeholder="如：体测报告、晨起空腹" /></label>
+              <button class="primary" type="submit">保存基础代谢</button>
             </form>
           </section>
           <section class="panel">
@@ -198,22 +231,22 @@
           <div class="grid two">
             <section class="panel game-card">
               <div class="panel-head">
-                <h3>今日任务抽签</h3>
-                <span class="pill" id="streakPill">连续 0 天</span>
+                <h3>缺口率任务</h3>
+                <span class="pill" id="streakPill">今日待挑战</span>
               </div>
-              <div class="challenge" id="challengeText">点击抽签生成一个今天的小挑战。</div>
-              <button class="primary" id="drawChallenge">抽取挑战</button>
+              <div class="challenge" id="challengeText">点击生成一个围绕缺口率的挑战。</div>
+              <button class="primary" id="drawChallenge">生成挑战</button>
               <button class="secondary" id="completeChallenge">完成挑战</button>
             </section>
             <section class="panel game-card">
               <div class="panel-head">
-                <h3>热量护城河</h3>
-                <span class="pill">减少摄入也能得分</span>
+                <h3>缺口护城河</h3>
+                <span class="pill">比值越高，城墙越高</span>
               </div>
               <div class="castle">
                 <div id="castleWall"></div>
               </div>
-              <p id="gameHint">当日净热量越低，防线越高；完成挑战会增加额外积分。</p>
+              <p id="gameHint">热量缺口率越高，防线越高；完成挑战会提升今天的防守等级。</p>
             </section>
           </div>
         </section>
