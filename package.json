@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
+    "fitness:server": "node fitness-api/server.js",
     "start": "node dist/cli.js",
     "prepare": "npm run build"
   },
@@ -19,11 +20,14 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "pg": "^8.21.0"
   }
 }

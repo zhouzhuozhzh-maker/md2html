@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: fitrank-team
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run fitness:server
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: DATABASE_URL
+        sync: false

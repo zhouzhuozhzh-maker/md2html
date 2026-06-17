@@ -1,5 +1,13 @@
 const today = new Date().toISOString().slice(0, 10);
 const storageKey = "fitrank-team-state-v5";
+const legacyStorageKeys = [
+  "fitrank-team-state-v4",
+  "fitrank-team-state-v3",
+  "fitrank-team-state-v2",
+  "fitrank-team-state-v1"
+];
+let backendAvailable = false;
+let isHydratingFromBackend = false;
 
 const challenges = [
   "今天把缺口率做到 20% 以上",
@@ -13,9 +21,15 @@ const challenges = [
 const state = loadState();
 
 function loadState() {
-  const stored = localStorage.getItem(storageKey);
-  if (stored) return JSON.parse(stored);
+  for (const key of [storageKey, ...legacyStorageKeys]) {
+    const stored = localStorage.getItem(key);
+    if (stored) return normalizeState(JSON.parse(stored));
+  }
 
+  return normalizeState({});
+}
+
+function normalizeState(value) {
   return {
     activeUserId: "",
     selectedPeriod: "week",
@@ -26,7 +40,8 @@ function loadState() {
     users: [],
     body: [],
     foods: [],
-    workouts: []
+    workouts: [],
+    ...value
   };
 }
 
@@ -34,6 +49,41 @@ function saveState() {
   state.groupName ||= "我的燃脂小组";
   state.groupPeriod ||= "week";
   localStorage.setItem(storageKey, JSON.stringify(state));
+  if (backendAvailable && !isHydratingFromBackend) {
+    persistStateToBackend();
+  }
+}
+
+async function hydrateFromBackend() {
+  try {
+    const response = await fetch("/api/state", { cache: "no-store" });
+    if (!response.ok) return;
+    backendAvailable = true;
+    const remoteState = normalizeState(await response.json());
+    if (remoteState.users.length > 0 || state.users.length === 0) {
+      isHydratingFromBackend = true;
+      Object.assign(state, remoteState);
+      localStorage.setItem(storageKey, JSON.stringify(state));
+      isHydratingFromBackend = false;
+      renderAll();
+    } else {
+      persistStateToBackend();
+    }
+  } catch {
+    backendAvailable = false;
+  }
+}
+
+async function persistStateToBackend() {
+  try {
+    await fetch("/api/state", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(state)
+    });
+  } catch {
+    backendAvailable = false;
+  }
 }
 
 const $ = (selector) => document.querySelector(selector);
@@ -574,3 +624,4 @@ function bindEvents() {
 
 bindEvents();
 renderAll();
+hydrateFromBackend();
