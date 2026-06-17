@@ -235,17 +235,43 @@
         </section>
 
         <section class="view" id="group">
-          <section class="panel">
+          <section class="panel group-control-panel">
             <div class="panel-head">
-              <h3>搜索用户 ID 组成健身小组</h3>
+              <h3>健身小组</h3>
               <span class="pill" id="memberCount">0 人</span>
+            </div>
+            <div class="group-name-row">
+              <input id="groupName" type="text" placeholder="小组名称，例如：六月燃脂队" />
+              <button class="primary" id="saveGroupName">保存小组</button>
             </div>
             <div class="search-row">
               <input id="userSearch" type="search" placeholder="搜索用户 ID，如 teammate01" />
               <button class="primary" id="addUser">加入小组</button>
             </div>
             <div id="searchResult" class="search-result"></div>
+            <form id="teammateForm" class="teammate-form">
+              <label>队友 ID<input type="text" name="id" placeholder="例如 runner02" required /></label>
+              <label>昵称<input type="text" name="name" placeholder="队友昵称" required /></label>
+              <label>基础代谢 kcal<input type="number" name="bmr" min="500" max="5000" step="1" required /></label>
+              <label>今日摄入 kcal<input type="number" name="intake" min="0" step="1" /></label>
+              <label>今日运动 kcal<input type="number" name="burned" min="0" step="1" /></label>
+              <label class="file-input">头像<input type="file" name="avatar" accept="image/*" /></label>
+              <button class="secondary" type="submit">快速添加队友</button>
+            </form>
             <div id="groupMembers" class="member-grid"></div>
+          </section>
+          <section class="panel group-battle-panel">
+            <div class="panel-head">
+              <h3>小组缺口率对战</h3>
+              <div class="segmented" id="groupPeriodTabs">
+                <button data-period="day">天</button>
+                <button class="active" data-period="week">周</button>
+                <button data-period="month">月</button>
+                <button data-period="quarter">季度</button>
+              </div>
+            </div>
+            <div class="battle-summary" id="battleSummary"></div>
+            <div class="battle-board" id="battleBoard"></div>
           </section>
         </section>
 

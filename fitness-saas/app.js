@@ -1,5 +1,5 @@
 const today = new Date().toISOString().slice(0, 10);
-const storageKey = "fitrank-team-state-v4";
+const storageKey = "fitrank-team-state-v5";
 
 const challenges = [
   "今天把缺口率做到 20% 以上",
@@ -19,6 +19,8 @@ function loadState() {
   return {
     activeUserId: "",
     selectedPeriod: "week",
+    groupPeriod: "week",
+    groupName: "我的燃脂小组",
     currentChallenge: "",
     completedChallenges: {},
     users: [],
@@ -29,6 +31,8 @@ function loadState() {
 }
 
 function saveState() {
+  state.groupName ||= "我的燃脂小组";
+  state.groupPeriod ||= "week";
   localStorage.setItem(storageKey, JSON.stringify(state));
 }
 
@@ -122,11 +126,13 @@ function periodLabel(period) {
 }
 
 function rankedUsers(period = "week") {
-  const groupIds = new Set(state.users.filter((user) => user.group).map((user) => user.id));
-  return state.users
-    .filter((user) => groupIds.has(user.id))
+  return groupMembers()
     .map((user) => ({ ...user, totals: userTotals(user.id, period) }))
     .sort((a, b) => b.totals.deficitRate - a.totals.deficitRate);
+}
+
+function groupMembers() {
+  return state.users.filter((user) => user.group);
 }
 
 async function readFileAsDataUrl(file) {
@@ -195,7 +201,7 @@ function renderDashboard() {
     : `<div class="feed-item"><span>还没有记录</span><b>0 kcal</b></div>`;
 
   $("#dashboardRanking").innerHTML = rankingRows(rankedUsers("week").slice(0, 5));
-  $("#groupBadge").textContent = `${state.users.filter((user) => user.group).length} 人小组`;
+  $("#groupBadge").textContent = `${groupMembers().length} 人小组`;
 }
 
 function renderBody() {
@@ -299,8 +305,11 @@ function rankingRows(users) {
 }
 
 function renderGroup() {
-  const members = state.users.filter((user) => user.group);
+  state.groupName ||= "我的燃脂小组";
+  state.groupPeriod ||= "week";
+  const members = groupMembers();
   $("#memberCount").textContent = `${members.length} 人`;
+  $("#groupName").value = state.groupName;
   $("#groupMembers").innerHTML = members.map((user) => {
     const totals = userTotals(user.id, "week");
     return `<div class="member-card">
@@ -308,8 +317,49 @@ function renderGroup() {
       <strong>${escapeHtml(user.name)}</strong>
       <small>${escapeHtml(user.id)} · ${escapeHtml(user.role)}</small>
       <p>本周缺口率 ${Math.round(totals.deficitRate * 100)}%</p>
+      <button class="ghost member-remove" data-user-id="${escapeHtml(user.id)}">移出小组</button>
     </div>`;
   }).join("");
+  renderGroupBattle();
+}
+
+function renderGroupBattle() {
+  const period = state.groupPeriod || "week";
+  $$("#groupPeriodTabs button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.period === period);
+  });
+  const ranked = rankedUsers(period);
+  const maxDeficit = Math.max(1, ...ranked.map((user) => user.totals.deficit));
+  const avgRate = ranked.length
+    ? ranked.reduce((sum, user) => sum + user.totals.deficitRate, 0) / ranked.length
+    : 0;
+  const leader = ranked[0];
+  $("#battleSummary").innerHTML = [
+    ["小组", state.groupName || "我的燃脂小组"],
+    ["周期", periodLabel(period)],
+    ["平均缺口率", `${Math.round(avgRate * 100)}%`],
+    ["当前领先", leader ? `${escapeHtml(leader.name)} ${Math.round(leader.totals.deficitRate * 100)}%` : "暂无成员"]
+  ].map(([label, value]) => `<div class="season-stat"><span>${label}</span><strong>${value}</strong></div>`).join("");
+
+  $("#battleBoard").innerHTML = ranked.length
+    ? ranked.map((user, index) => {
+      const rate = Math.round(user.totals.deficitRate * 100);
+      const deficitWidth = Math.max(3, Math.round((user.totals.deficit / maxDeficit) * 100));
+      return `<div class="battle-row">
+        <div class="battle-person">
+          <span class="place">${index + 1}</span>
+          <span class="avatar small">${user.avatar ? `<img src="${user.avatar}" alt="${escapeHtml(user.name)}">` : escapeHtml(user.name.slice(0, 1))}</span>
+          <span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.id)}</small></span>
+        </div>
+        <div class="battle-bars">
+          <div class="battle-bar"><span style="width:${Math.min(100, Math.max(3, user.totals.intake / Math.max(1, user.totals.bmr) * 70))}%"></span><small>摄入 ${user.totals.intake}</small></div>
+          <div class="battle-bar burned"><span style="width:${Math.min(100, Math.max(3, user.totals.burned / Math.max(1, user.totals.bmr) * 100))}%"></span><small>运动 ${user.totals.burned}</small></div>
+          <div class="battle-bar deficit"><span style="width:${deficitWidth}%"></span><small>缺口 ${user.totals.deficit}</small></div>
+        </div>
+        <strong class="battle-rate">${rate}%</strong>
+      </div>`;
+    }).join("")
+    : `<div class="empty-battle">先添加队友，组队比拼会显示每个人的摄入、运动、缺口和缺口率。</div>`;
 }
 
 function renderGame() {
@@ -370,6 +420,12 @@ function bindEvents() {
     state.activeUserId = event.target.value;
     saveState();
     renderAll();
+  });
+
+  $("#saveGroupName").addEventListener("click", () => {
+    state.groupName = $("#groupName").value.trim() || "我的燃脂小组";
+    saveState();
+    renderGroup();
   });
 
   $("#bodyForm").addEventListener("submit", (event) => {
@@ -436,10 +492,59 @@ function bindEvents() {
       return;
     }
     user.group = true;
-    $("#searchResult").textContent = `${user.name} 已加入健身小组。`;
+    $("#searchResult").textContent = `${user.name} 已加入 ${state.groupName || "健身小组"}。`;
     $("#userSearch").value = "";
     saveState();
     renderAll();
+  });
+
+  $("#teammateForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.target);
+    const id = String(form.get("id")).trim();
+    const name = String(form.get("name")).trim();
+    const bmr = Number(form.get("bmr"));
+    const intake = Number(form.get("intake") || 0);
+    const burned = Number(form.get("burned") || 0);
+    const avatar = await readFileAsDataUrl(form.get("avatar"));
+    if (!id || !name || !bmr) return;
+    let user = state.users.find((item) => item.id.toLowerCase() === id.toLowerCase());
+    if (!user) {
+      user = { id, name, role: "队友", avatar, group: true };
+      state.users.push(user);
+    } else {
+      user.name = name;
+      user.avatar = avatar || user.avatar;
+      user.group = true;
+    }
+    state.body = state.body.filter((item) => !(item.userId === id && item.date === today));
+    state.body.push({ userId: id, date: today, bmr, weight: "", bodyFat: "", waist: "", note: "组队快速录入" });
+    if (intake) {
+      state.foods.push({ userId: id, date: today, name: "今日摄入合计", calories: intake, meal: "合计", photo: "" });
+    }
+    if (burned) {
+      state.workouts.push({ userId: id, date: today, activity: "今日运动合计", minutes: 0, calories: burned, photo: "" });
+    }
+    $("#searchResult").textContent = `${name} 已加入 ${state.groupName || "健身小组"}，并生成今天的比拼数据。`;
+    event.target.reset();
+    saveState();
+    renderAll();
+  });
+
+  $("#groupMembers").addEventListener("click", (event) => {
+    const button = event.target.closest(".member-remove");
+    if (!button) return;
+    const user = state.users.find((item) => item.id === button.dataset.userId);
+    if (user) user.group = false;
+    saveState();
+    renderAll();
+  });
+
+  $("#groupPeriodTabs").addEventListener("click", (event) => {
+    if (!event.target.matches("button")) return;
+    state.groupPeriod = event.target.dataset.period;
+    saveState();
+    renderGroupBattle();
   });
 
   $("#drawChallenge").addEventListener("click", () => {
