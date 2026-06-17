@@ -29,7 +29,7 @@
               <div class="preview-screen">
                 <span class="preview-dot"></span>
                 <strong>Today</strong>
-                <small>缺口率 18%</small>
+                <small>缺口率目标</small>
                 <div class="preview-bars">
                   <span></span><span></span><span></span><span></span><span></span>
                 </div>
@@ -48,6 +48,7 @@
             <label>用户 ID<input type="text" name="id" placeholder="例如 zhou001" required /></label>
             <label>昵称<input type="text" name="name" placeholder="你的昵称" required /></label>
             <label>角色/部门<input type="text" name="role" placeholder="例如 研发、产品、运营" /></label>
+            <label class="file-input">头像<input type="file" name="avatar" accept="image/*" /></label>
             <button class="primary" type="submit">注册并进入</button>
           </form>
         </div>
@@ -81,6 +82,10 @@
             <h1>热量缺口率，才是唯一排名指标</h1>
           </div>
           <div class="user-switcher">
+            <div class="active-profile">
+              <span class="profile-avatar" id="activeAvatar">F</span>
+              <span id="activeName">FitRank</span>
+            </div>
             <label for="activeUser">切换账号</label>
             <select id="activeUser"></select>
           </div>
@@ -198,7 +203,7 @@
         </section>
 
         <section class="view" id="ranking">
-          <section class="panel">
+          <section class="panel season-panel">
             <div class="panel-head">
               <h3>周期排行榜</h3>
               <div class="segmented" id="periodTabs">
@@ -206,6 +211,23 @@
                 <button data-period="week">周</button>
                 <button data-period="month">月</button>
                 <button data-period="quarter">季度</button>
+              </div>
+            </div>
+            <div class="season-summary" id="seasonSummary"></div>
+            <div class="chart-card">
+              <div class="chart-head">
+                <div>
+                  <h4>每日热量缺口趋势</h4>
+                  <p>摄入、运动、缺口和缺口率按天展开</p>
+                </div>
+                <span class="pill" id="chartPeriodLabel">本周</span>
+              </div>
+              <div class="trend-chart" id="trendChart"></div>
+              <div class="chart-legend">
+                <span class="legend-intake">摄入</span>
+                <span class="legend-burned">运动</span>
+                <span class="legend-deficit">缺口</span>
+                <span class="legend-rate">缺口率</span>
               </div>
             </div>
             <div id="rankingList" class="ranking-list large"></div>

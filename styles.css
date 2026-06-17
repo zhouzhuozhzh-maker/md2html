@@ -74,10 +74,8 @@ button {
   min-height: 84vh;
   padding: 28px;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.42)),
-    radial-gradient(circle at 20% 10%, rgba(29, 125, 106, 0.12), transparent 20%),
-    radial-gradient(circle at 80% 20%, rgba(226, 105, 70, 0.12), transparent 22%),
-    radial-gradient(circle at 75% 80%, rgba(49, 93, 215, 0.1), transparent 20%);
+    linear-gradient(90deg, rgba(244, 247, 245, 0.96) 0 42%, rgba(244, 247, 245, 0.72) 58%, rgba(244, 247, 245, 0.2)),
+    url("./assets/sport-hero.png") center right / cover;
 }
 
 .auth-card {
@@ -349,6 +347,38 @@ h3 {
   min-width: 190px;
 }
 
+.active-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.profile-avatar,
+.avatar {
+  display: grid;
+  overflow: hidden;
+  place-items: center;
+  color: #ffffff;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--accent), var(--accent-3));
+}
+
+.profile-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.profile-avatar img,
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .user-switcher label {
   color: var(--muted);
   font-size: 12px;
@@ -391,9 +421,8 @@ input {
   padding: 28px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 0% 0%, rgba(29, 125, 106, 0.14), transparent 24%),
-    radial-gradient(circle at 100% 20%, rgba(226, 105, 70, 0.12), transparent 22%),
-    linear-gradient(118deg, rgba(255, 255, 255, 0.98) 0 60%, rgba(240, 248, 245, 0.92));
+    linear-gradient(105deg, rgba(255, 255, 255, 0.98) 0 48%, rgba(255, 255, 255, 0.8) 62%, rgba(255, 255, 255, 0.25)),
+    url("./assets/sport-hero.png") center right / cover;
 }
 
 .hero-panel p {
@@ -622,6 +651,153 @@ input {
   background: linear-gradient(135deg, rgba(255, 247, 243, 0.94), rgba(255, 255, 255, 0.96));
 }
 
+.season-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.season-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.season-stat {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(244, 247, 245, 0.92));
+}
+
+.season-stat span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.season-stat strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 22px;
+}
+
+.chart-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.82)),
+    repeating-linear-gradient(0deg, rgba(19, 33, 31, 0.045) 0 1px, transparent 1px 36px);
+}
+
+.chart-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.chart-head h4 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.chart-head p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.trend-chart {
+  display: grid;
+  grid-auto-columns: minmax(54px, 1fr);
+  grid-auto-flow: column;
+  gap: 10px;
+  align-items: end;
+  min-height: 230px;
+  overflow-x: auto;
+  padding: 12px 4px 4px;
+}
+
+.trend-day {
+  position: relative;
+  display: grid;
+  grid-template-rows: 150px 22px 18px;
+  gap: 6px;
+  min-width: 54px;
+  justify-items: center;
+}
+
+.bar-stack {
+  display: flex;
+  align-items: end;
+  gap: 4px;
+  height: 150px;
+}
+
+.bar {
+  width: 10px;
+  min-height: 4px;
+  border-radius: 999px 999px 3px 3px;
+}
+
+.bar.intake {
+  background: linear-gradient(180deg, #f07a52, #e26946);
+}
+
+.bar.burned {
+  background: linear-gradient(180deg, #4f76ff, #315dd7);
+}
+
+.bar.deficit {
+  background: linear-gradient(180deg, #2abf8d, #1d7d6a);
+}
+
+.rate-line {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 3px;
+  border-radius: 999px;
+  background: #111c1a;
+  opacity: 0.45;
+}
+
+.trend-day strong {
+  font-size: 13px;
+}
+
+.trend-day small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chart-legend span::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.legend-intake::before { background: #e26946; }
+.legend-burned::before { background: #315dd7; }
+.legend-deficit::before { background: #1d7d6a; }
+.legend-rate::before { background: #111c1a; }
+
 .segmented {
   display: inline-grid;
   grid-template-columns: repeat(4, 1fr);
@@ -694,14 +870,9 @@ input {
 }
 
 .avatar {
-  display: grid;
   width: 42px;
   height: 42px;
-  place-items: center;
-  border-radius: 8px;
-  color: #ffffff;
-  font-weight: 900;
-  background: var(--accent-3);
+  border-radius: 12px;
   margin-bottom: 10px;
 }
 
@@ -783,7 +954,8 @@ input {
 
   .form-grid,
   .photo-grid,
-  .member-grid {
+  .member-grid,
+  .season-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -814,8 +986,17 @@ input {
   .nav,
   .form-grid,
   .photo-grid,
-  .member-grid {
+  .member-grid,
+  .season-summary {
     grid-template-columns: 1fr;
+  }
+
+  .chart-head {
+    flex-direction: column;
+  }
+
+  .trend-chart {
+    grid-auto-columns: 58px;
   }
 
   .auth-pills,
