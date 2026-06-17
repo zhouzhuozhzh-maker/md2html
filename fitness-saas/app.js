@@ -1,5 +1,5 @@
 const today = new Date().toISOString().slice(0, 10);
-const storageKey = "fitrank-team-state-v3";
+const storageKey = "fitrank-team-state-v4";
 
 const challenges = [
   "今天把缺口率做到 20% 以上",
@@ -57,16 +57,19 @@ function daysBetween(a, b) {
   return Math.abs((b - a) / 86400000);
 }
 
-function userTotals(userId, period = "day") {
-  const foods = state.foods.filter((item) => item.userId === userId && samePeriod(item.date, period));
-  const workouts = state.workouts.filter((item) => item.userId === userId && samePeriod(item.date, period));
+function latestBody(userId) {
   const body = [...state.body].filter((item) => item.userId === userId).sort((a, b) => b.date.localeCompare(a.date))[0];
+  return body || null;
+}
+
+function calculateTotals(userId, foods, workouts, includeChallengeBonus = false) {
+  const body = latestBody(userId);
   const bmr = Number(body?.bmr || 0);
   const intake = foods.reduce((sum, item) => sum + Number(item.calories || 0), 0);
   const burned = workouts.reduce((sum, item) => sum + Number(item.calories || 0), 0);
   const deficit = Math.max(0, bmr + burned - intake);
   const deficitRate = bmr > 0 ? deficit / bmr : 0;
-  const challengeBonus = state.completedChallenges[`${userId}:${today}`] ? 0.03 : 0;
+  const challengeBonus = includeChallengeBonus && state.completedChallenges[`${userId}:${today}`] ? 0.03 : 0;
   const adjustedRate = Math.max(0, deficitRate + challengeBonus);
   const net = intake - burned;
   return {
@@ -79,6 +82,43 @@ function userTotals(userId, period = "day") {
     foodCount: foods.length,
     workoutCount: workouts.length
   };
+}
+
+function userTotals(userId, period = "day") {
+  const foods = state.foods.filter((item) => item.userId === userId && samePeriod(item.date, period));
+  const workouts = state.workouts.filter((item) => item.userId === userId && samePeriod(item.date, period));
+  return calculateTotals(userId, foods, workouts, samePeriod(today, period));
+}
+
+function userTotalsForDate(userId, dateText) {
+  const foods = state.foods.filter((item) => item.userId === userId && item.date === dateText);
+  const workouts = state.workouts.filter((item) => item.userId === userId && item.date === dateText);
+  return calculateTotals(userId, foods, workouts, dateText === today);
+}
+
+function dateRange(period) {
+  const end = new Date(`${today}T00:00:00`);
+  const start = new Date(end);
+  if (period === "day") {
+    return [today];
+  }
+  if (period === "week") {
+    start.setDate(end.getDate() - 6);
+  } else if (period === "month") {
+    start.setDate(1);
+  } else {
+    start.setMonth(Math.floor(end.getMonth() / 3) * 3, 1);
+  }
+  const days = Math.round((end - start) / 86400000) + 1;
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return date.toISOString().slice(0, 10);
+  });
+}
+
+function periodLabel(period) {
+  return { day: "今天", week: "近 7 天", month: "本月", quarter: "本季度" }[period] || "本周";
 }
 
 function rankedUsers(period = "week") {
@@ -119,6 +159,11 @@ function renderUsers() {
     .map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} · ${escapeHtml(user.id)}</option>`)
     .join("");
   $("#activeUser").value = state.activeUserId;
+  const user = activeUser();
+  $("#activeName").textContent = user ? user.name : "FitRank";
+  $("#activeAvatar").innerHTML = user?.avatar
+    ? `<img src="${user.avatar}" alt="${escapeHtml(user.name)}">`
+    : escapeHtml(user?.name?.slice(0, 1) || "F");
 }
 
 function renderDashboard() {
@@ -198,7 +243,46 @@ function renderRanking() {
   $$("#periodTabs button").forEach((button) => {
     button.classList.toggle("active", button.dataset.period === state.selectedPeriod);
   });
+  renderTrendChart();
   $("#rankingList").innerHTML = rankingRows(rankedUsers(state.selectedPeriod));
+}
+
+function renderTrendChart() {
+  const user = activeUser();
+  if (!user) return;
+  const days = dateRange(state.selectedPeriod);
+  const series = days.map((date) => ({ date, ...userTotalsForDate(user.id, date) }));
+  const maxKcal = Math.max(1, ...series.flatMap((item) => [item.intake, item.burned, item.deficit]));
+  const totalIntake = series.reduce((sum, item) => sum + item.intake, 0);
+  const totalBurned = series.reduce((sum, item) => sum + item.burned, 0);
+  const totalDeficit = series.reduce((sum, item) => sum + item.deficit, 0);
+  const avgRate = series.length ? series.reduce((sum, item) => sum + item.deficitRate, 0) / series.length : 0;
+
+  $("#chartPeriodLabel").textContent = periodLabel(state.selectedPeriod);
+  $("#seasonSummary").innerHTML = [
+    ["总摄入", `${totalIntake} kcal`],
+    ["总运动", `${totalBurned} kcal`],
+    ["总缺口", `${totalDeficit} kcal`],
+    ["平均缺口率", `${Math.round(avgRate * 100)}%`]
+  ].map(([label, value]) => `<div class="season-stat"><span>${label}</span><strong>${value}</strong></div>`).join("");
+
+  $("#trendChart").innerHTML = series.map((item) => {
+    const intakeHeight = Math.max(4, Math.round((item.intake / maxKcal) * 120));
+    const burnedHeight = Math.max(4, Math.round((item.burned / maxKcal) * 120));
+    const deficitHeight = Math.max(4, Math.round((item.deficit / maxKcal) * 120));
+    const rate = Math.round(item.deficitRate * 100);
+    const dayLabel = item.date.slice(5).replace("-", "/");
+    return `<div class="trend-day" title="${item.date} 缺口率 ${rate}%">
+      <div class="rate-line" style="bottom:${Math.min(140, Math.max(8, rate * 2.2))}px"></div>
+      <div class="bar-stack">
+        <span class="bar intake" style="height:${intakeHeight}px"></span>
+        <span class="bar burned" style="height:${burnedHeight}px"></span>
+        <span class="bar deficit" style="height:${deficitHeight}px"></span>
+      </div>
+      <strong>${rate}%</strong>
+      <small>${dayLabel}</small>
+    </div>`;
+  }).join("");
 }
 
 function rankingRows(users) {
@@ -220,7 +304,7 @@ function renderGroup() {
   $("#groupMembers").innerHTML = members.map((user) => {
     const totals = userTotals(user.id, "week");
     return `<div class="member-card">
-      <div class="avatar">${escapeHtml(user.name.slice(0, 1))}</div>
+      <div class="avatar">${user.avatar ? `<img src="${user.avatar}" alt="${escapeHtml(user.name)}">` : escapeHtml(user.name.slice(0, 1))}</div>
       <strong>${escapeHtml(user.name)}</strong>
       <small>${escapeHtml(user.id)} · ${escapeHtml(user.role)}</small>
       <p>本周缺口率 ${Math.round(totals.deficitRate * 100)}%</p>
@@ -258,12 +342,13 @@ function switchView(viewId) {
 }
 
 function bindEvents() {
-  $("#registerForm").addEventListener("submit", (event) => {
+  $("#registerForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(event.target);
     const id = String(form.get("id")).trim();
     const name = String(form.get("name")).trim();
     const role = String(form.get("role")).trim() || "成员";
+    const avatar = await readFileAsDataUrl(form.get("avatar"));
     if (!id || !name) return;
     if (state.users.some((user) => user.id.toLowerCase() === id.toLowerCase())) {
       event.target.querySelector('input[name="id"]').setCustomValidity("这个用户 ID 已存在");
@@ -271,7 +356,7 @@ function bindEvents() {
       return;
     }
     event.target.querySelector('input[name="id"]').setCustomValidity("");
-    state.users.push({ id, name, role, group: true });
+    state.users.push({ id, name, role, avatar, group: true });
     state.activeUserId = id;
     saveState();
     event.target.reset();
