@@ -84,6 +84,21 @@ button {
   padding: 28px;
 }
 
+.auth-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.auth-block {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-block-muted {
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
 .auth-brand {
   color: var(--ink);
   margin-bottom: 0;
@@ -103,6 +118,11 @@ button {
 .auth-card p {
   color: var(--muted);
   line-height: 1.7;
+}
+
+.auth-hint {
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .auth-hero p {

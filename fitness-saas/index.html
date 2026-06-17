@@ -42,15 +42,34 @@
           </div>
         </div>
         <div class="auth-card">
-          <h2>创建账号</h2>
-          <p>先注册一个本地用户，后续可以再接入真正的登录系统和云端数据库。</p>
-          <form id="registerForm" class="auth-form">
-            <label>用户 ID<input type="text" name="id" placeholder="例如 zhou001" required /></label>
-            <label>昵称<input type="text" name="name" placeholder="你的昵称" required /></label>
-            <label>角色/部门<input type="text" name="role" placeholder="例如 研发、产品、运营" /></label>
-            <label class="file-input">头像<input type="file" name="avatar" accept="image/*" /></label>
-            <button class="primary" type="submit">注册并进入</button>
-          </form>
+          <div class="auth-stack">
+            <section class="auth-block">
+              <h2>创建账号</h2>
+              <p>先注册一个本地用户，后续可以再接入真正的登录系统和云端数据库。</p>
+              <form id="registerForm" class="auth-form">
+                <label>用户 ID<input type="text" name="id" placeholder="例如 zhou001" required /></label>
+                <label>昵称<input type="text" name="name" placeholder="你的昵称" required /></label>
+                <label>角色/部门<input type="text" name="role" placeholder="例如 研发、产品、运营" /></label>
+                <label class="file-input">头像<input type="file" name="avatar" accept="image/*" /></label>
+                <button class="primary" type="submit">注册并进入</button>
+              </form>
+            </section>
+
+            <section class="auth-block auth-block-muted">
+              <h2>登录账号</h2>
+              <p>已有账号可直接登录，保留你之前录入的体测、饮食和运动记录。</p>
+              <form id="loginForm" class="auth-form">
+                <label>选择账号
+                  <select id="loginUserSelect" name="userId"></select>
+                </label>
+                <label>或输入用户 ID
+                  <input type="text" name="id" placeholder="例如 zhou001" />
+                </label>
+                <button class="secondary" type="submit">登录进入</button>
+              </form>
+              <small id="loginHint" class="auth-hint">暂无账号时先注册一个。</small>
+            </section>
+          </div>
         </div>
       </div>
     </section>

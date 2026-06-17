@@ -222,6 +222,24 @@ function renderUsers() {
     : escapeHtml(user?.name?.slice(0, 1) || "F");
 }
 
+function renderAuthUsers() {
+  const select = $("#loginUserSelect");
+  if (!select) return;
+  if (state.users.length === 0) {
+    select.innerHTML = `<option value="">暂无账号，请先注册</option>`;
+    select.disabled = true;
+    $("#loginHint").textContent = "先注册一个账号，之后就可以在这里直接登录。";
+    return;
+  }
+
+  select.disabled = false;
+  select.innerHTML = state.users
+    .map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} · ${escapeHtml(user.id)}</option>`)
+    .join("");
+  select.value = state.users[0].id;
+  $("#loginHint").textContent = `当前可登录 ${state.users.length} 个账号。`;
+}
+
 function renderDashboard() {
   const user = activeUser();
   if (!user) return;
@@ -421,6 +439,7 @@ function renderGame() {
 }
 
 function renderAll() {
+  renderAuthUsers();
   const registered = hasActiveUser();
   $("#authScreen").classList.toggle("hidden", registered);
   $("#appShell").classList.toggle("hidden", !registered);
@@ -460,6 +479,26 @@ function bindEvents() {
     state.activeUserId = id;
     saveState();
     event.target.reset();
+    renderAll();
+  });
+
+  $("#loginForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = new FormData(event.target);
+    const typedId = String(form.get("id") || "").trim();
+    const selectedId = String(form.get("userId") || "").trim();
+    const id = typedId || selectedId;
+    const user = state.users.find((item) => item.id.toLowerCase() === id.toLowerCase());
+    if (!user) {
+      const input = event.target.querySelector('input[name="id"]');
+      input.setCustomValidity("没有找到这个账号");
+      event.target.reportValidity();
+      return;
+    }
+
+    event.target.querySelector('input[name="id"]').setCustomValidity("");
+    state.activeUserId = user.id;
+    saveState();
     renderAll();
   });
 
