@@ -53,22 +53,20 @@
             </div>
           </div>
           <form id="loginForm" class="auth-form auth-mode" data-auth-mode="login">
-            <label>选择账号
-              <select id="loginUserSelect" name="userId"></select>
-            </label>
-            <label>或输入用户 ID
-              <input type="text" name="id" placeholder="例如 zhou001" />
-            </label>
+            <label>账号<input type="text" name="id" placeholder="例如 zhou001" autocomplete="username" required /></label>
+            <label>密码<input type="password" name="password" placeholder="请输入密码" autocomplete="current-password" required /></label>
             <button class="secondary" type="submit">登录进入</button>
           </form>
           <form id="registerForm" class="auth-form auth-mode hidden" data-auth-mode="register">
-            <label>用户 ID<input type="text" name="id" placeholder="例如 zhou001" required /></label>
+            <label>账号<input type="text" name="id" placeholder="例如 zhou001" autocomplete="username" required /></label>
+            <label>密码<input type="password" name="password" placeholder="设置登录密码" autocomplete="new-password" required /></label>
+            <label>确认密码<input type="password" name="passwordConfirm" placeholder="再输入一次密码" autocomplete="new-password" required /></label>
             <label>昵称<input type="text" name="name" placeholder="你的昵称" required /></label>
             <label>角色/部门<input type="text" name="role" placeholder="例如 研发、产品、运营" /></label>
             <label class="file-input">头像<input type="file" name="avatar" accept="image/*" /></label>
             <button class="primary" type="submit">注册并进入</button>
           </form>
-          <small id="loginHint" class="auth-hint">暂无账号时先注册一个。</small>
+          <small id="loginHint" class="auth-hint">账号密码登录，不再依赖账号列表。</small>
         </div>
       </div>
     </section>

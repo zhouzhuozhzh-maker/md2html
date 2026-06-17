@@ -8,7 +8,7 @@ const legacyStorageKeys = [
 ];
 let backendAvailable = false;
 let isHydratingFromBackend = false;
-let authMode = state.users.length > 0 ? "login" : "register";
+let authMode = "login";
 
 const challenges = [
   "今天把缺口率做到 20% 以上",
@@ -20,6 +20,7 @@ const challenges = [
 ];
 
 const state = loadState();
+authMode = state.users.length > 0 ? "login" : "register";
 
 function loadState() {
   for (const key of [storageKey, ...legacyStorageKeys]) {
@@ -44,6 +45,33 @@ function normalizeState(value) {
     workouts: [],
     ...value
   };
+}
+
+function bufferToBase64Url(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let text = "";
+  for (const byte of bytes) text += String.fromCharCode(byte);
+  return btoa(text).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function randomBase64Url(bytes = 16) {
+  const buffer = new Uint8Array(bytes);
+  crypto.getRandomValues(buffer);
+  return bufferToBase64Url(buffer);
+}
+
+async function hashPassword(password, salt) {
+  const encoded = new TextEncoder().encode(`${salt}:${password}`);
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
+  return bufferToBase64Url(digest);
+}
+
+async function verifyPassword(user, password) {
+  if (!user) return false;
+  if (user.passwordHash && user.passwordSalt) {
+    return (await hashPassword(password, user.passwordSalt)) === user.passwordHash;
+  }
+  return password === user.id;
 }
 
 function saveState() {
@@ -221,25 +249,6 @@ function renderUsers() {
   $("#activeAvatar").innerHTML = user?.avatar
     ? `<img src="${user.avatar}" alt="${escapeHtml(user.name)}">`
     : escapeHtml(user?.name?.slice(0, 1) || "F");
-}
-
-function renderAuthUsers() {
-  const select = $("#loginUserSelect");
-  if (!select) return;
-  if (state.users.length === 0) {
-    authMode = "register";
-    select.innerHTML = `<option value="">暂无账号，请先注册</option>`;
-    select.disabled = true;
-    $("#loginHint").textContent = "先注册一个账号，之后就可以在这里直接登录。";
-    return;
-  }
-
-  select.disabled = false;
-  select.innerHTML = state.users
-    .map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} · ${escapeHtml(user.id)}</option>`)
-    .join("");
-  select.value = state.users[0].id;
-  $("#loginHint").textContent = `当前可登录 ${state.users.length} 个账号。`;
 }
 
 function renderAuthMode() {
@@ -459,7 +468,6 @@ function renderGame() {
 }
 
 function renderAll() {
-  renderAuthUsers();
   renderAuthMode();
   const registered = hasActiveUser();
   $("#authScreen").classList.toggle("hidden", registered);
@@ -495,27 +503,37 @@ function bindEvents() {
     const id = String(form.get("id")).trim();
     const name = String(form.get("name")).trim();
     const role = String(form.get("role")).trim() || "成员";
+    const password = String(form.get("password") || "");
+    const passwordConfirm = String(form.get("passwordConfirm") || "");
     const avatar = await readFileAsDataUrl(form.get("avatar"));
-    if (!id || !name) return;
+    if (!id || !name || !password) return;
+    if (password !== passwordConfirm) {
+      const confirm = event.target.querySelector('input[name="passwordConfirm"]');
+      confirm.setCustomValidity("两次密码不一致");
+      event.target.reportValidity();
+      return;
+    }
     if (state.users.some((user) => user.id.toLowerCase() === id.toLowerCase())) {
       event.target.querySelector('input[name="id"]').setCustomValidity("这个用户 ID 已存在");
       event.target.reportValidity();
       return;
     }
     event.target.querySelector('input[name="id"]').setCustomValidity("");
-    state.users.push({ id, name, role, avatar, group: true });
+    event.target.querySelector('input[name="passwordConfirm"]').setCustomValidity("");
+    const passwordSalt = randomBase64Url(16);
+    const passwordHash = await hashPassword(password, passwordSalt);
+    state.users.push({ id, name, role, avatar, group: true, passwordSalt, passwordHash });
     state.activeUserId = id;
     saveState();
     event.target.reset();
     renderAll();
   });
 
-  $("#loginForm").addEventListener("submit", (event) => {
+  $("#loginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(event.target);
-    const typedId = String(form.get("id") || "").trim();
-    const selectedId = String(form.get("userId") || "").trim();
-    const id = typedId || selectedId;
+    const id = String(form.get("id") || "").trim();
+    const password = String(form.get("password") || "");
     const user = state.users.find((item) => item.id.toLowerCase() === id.toLowerCase());
     if (!user) {
       const input = event.target.querySelector('input[name="id"]');
@@ -525,9 +543,32 @@ function bindEvents() {
     }
 
     event.target.querySelector('input[name="id"]').setCustomValidity("");
+    if (!password) return;
+    const matched = await verifyPassword(user, password);
+    if (!matched) {
+      const input = event.target.querySelector('input[name="password"]');
+      input.setCustomValidity("密码不正确");
+      event.target.reportValidity();
+      return;
+    }
+
+    inputResetValidity(event.target, 'input[name="password"]');
+    if (!user.passwordHash || !user.passwordSalt) {
+      user.passwordSalt = "legacy";
+      user.passwordHash = await hashPassword(user.id, user.passwordSalt);
+      saveState();
+    }
     state.activeUserId = user.id;
     saveState();
     renderAll();
+  });
+
+  $$("#loginForm input").forEach((input) => {
+    input.addEventListener("input", () => input.setCustomValidity(""));
+  });
+
+  $$("#registerForm input").forEach((input) => {
+    input.addEventListener("input", () => input.setCustomValidity(""));
   });
 
   $$(".nav-item").forEach((item) => item.addEventListener("click", () => switchView(item.dataset.view)));
@@ -687,6 +728,11 @@ function bindEvents() {
     saveState();
     renderAll();
   });
+}
+
+function inputResetValidity(form, selector) {
+  const input = form.querySelector(selector);
+  if (input) input.setCustomValidity("");
 }
 
 bindEvents();
