@@ -80,23 +80,60 @@ button {
 
 .auth-card {
   display: grid;
-  align-content: center;
+  align-content: start;
+  gap: 18px;
   padding: 28px;
 }
 
-.auth-stack {
+.auth-card-head {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
-.auth-block {
-  display: grid;
-  gap: 10px;
+.auth-card-head h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.05;
 }
 
-.auth-block-muted {
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
+.auth-card-head p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.auth-toggle {
+  display: inline-flex;
+  justify-self: end;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(18, 33, 31, 0.06);
+}
+
+.auth-tab {
+  min-width: 72px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  font-weight: 800;
+}
+
+.auth-tab.active {
+  color: #fff;
+  background: var(--ink);
+  box-shadow: 0 8px 18px rgba(19, 33, 31, 0.18);
+}
+
+.auth-mode {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-mode.hidden {
+  display: none;
 }
 
 .auth-brand {
@@ -116,19 +153,14 @@ button {
 }
 
 .auth-card p {
+  max-width: 54ch;
   color: var(--muted);
-  line-height: 1.7;
+  line-height: 1.8;
 }
 
 .auth-hint {
   color: var(--muted);
   font-weight: 700;
-}
-
-.auth-hero p {
-  max-width: 54ch;
-  color: var(--muted);
-  line-height: 1.8;
 }
 
 .auth-pills {

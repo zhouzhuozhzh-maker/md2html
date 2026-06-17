@@ -8,6 +8,7 @@ const legacyStorageKeys = [
 ];
 let backendAvailable = false;
 let isHydratingFromBackend = false;
+let authMode = state.users.length > 0 ? "login" : "register";
 
 const challenges = [
   "今天把缺口率做到 20% 以上",
@@ -226,6 +227,7 @@ function renderAuthUsers() {
   const select = $("#loginUserSelect");
   if (!select) return;
   if (state.users.length === 0) {
+    authMode = "register";
     select.innerHTML = `<option value="">暂无账号，请先注册</option>`;
     select.disabled = true;
     $("#loginHint").textContent = "先注册一个账号，之后就可以在这里直接登录。";
@@ -238,6 +240,24 @@ function renderAuthUsers() {
     .join("");
   select.value = state.users[0].id;
   $("#loginHint").textContent = `当前可登录 ${state.users.length} 个账号。`;
+}
+
+function renderAuthMode() {
+  const title = $("#authTitle");
+  const subtitle = $("#authSubtitle");
+  const tabs = $$(".auth-tab");
+  const loginForm = $("#loginForm");
+  const registerForm = $("#registerForm");
+  if (!title || !subtitle || !loginForm || !registerForm) return;
+
+  tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.authMode === authMode));
+  loginForm.classList.toggle("hidden", authMode !== "login");
+  registerForm.classList.toggle("hidden", authMode !== "register");
+  title.textContent = authMode === "login" ? "登录账号" : "创建账号";
+  subtitle.textContent =
+    authMode === "login"
+      ? "已有账号可直接登录，保留你之前录入的体测、饮食和运动记录。"
+      : "先注册一个本地用户，后续可以再接入真正的登录系统和云端数据库。";
 }
 
 function renderDashboard() {
@@ -440,6 +460,7 @@ function renderGame() {
 
 function renderAll() {
   renderAuthUsers();
+  renderAuthMode();
   const registered = hasActiveUser();
   $("#authScreen").classList.toggle("hidden", registered);
   $("#appShell").classList.toggle("hidden", !registered);
@@ -461,6 +482,13 @@ function switchView(viewId) {
 }
 
 function bindEvents() {
+  $$(".auth-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      authMode = tab.dataset.authMode || "login";
+      renderAuthMode();
+    });
+  });
+
   $("#registerForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(event.target);
