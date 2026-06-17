@@ -849,9 +849,46 @@ input {
     #eef4f0;
 }
 
-.search-row input {
+.search-row input,
+.group-name-row input {
   flex: 1;
   min-width: 220px;
+}
+
+.group-control-panel {
+  margin-bottom: 18px;
+}
+
+.group-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.teammate-form {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background:
+    linear-gradient(135deg, rgba(29, 125, 106, 0.08), rgba(226, 105, 70, 0.08)),
+    rgba(255, 255, 255, 0.82);
+}
+
+.teammate-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.teammate-form button {
+  align-self: end;
 }
 
 .search-result {
@@ -869,11 +906,159 @@ input {
   min-height: 116px;
 }
 
+.member-remove {
+  margin-top: 8px;
+  padding: 0;
+  min-height: auto;
+  font-size: 12px;
+}
+
 .avatar {
   width: 42px;
   height: 42px;
   border-radius: 12px;
   margin-bottom: 10px;
+}
+
+.avatar.small {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
+.group-battle-panel {
+  background:
+    linear-gradient(135deg, rgba(19, 33, 31, 0.96), rgba(21, 50, 46, 0.92)),
+    radial-gradient(circle at 90% 10%, rgba(226, 105, 70, 0.35), transparent 28%);
+  color: #ffffff;
+}
+
+.group-battle-panel .panel-head h3,
+.group-battle-panel .chart-head h4 {
+  color: #ffffff;
+}
+
+.group-battle-panel .pill {
+  color: #e9fff7;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.battle-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.group-battle-panel .season-stat {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.group-battle-panel .season-stat span {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.group-battle-panel .season-stat strong {
+  color: #ffffff;
+}
+
+.battle-board {
+  display: grid;
+  gap: 10px;
+}
+
+.battle-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(240px, 1.4fr) 80px;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.battle-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.battle-person .place {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 8px;
+  color: #14211f;
+  font-weight: 900;
+  background: #aaf3d5;
+}
+
+.battle-person strong,
+.battle-person small {
+  display: block;
+}
+
+.battle-person small {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.battle-bars {
+  display: grid;
+  gap: 6px;
+}
+
+.battle-bar {
+  position: relative;
+  overflow: hidden;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.battle-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f07a52, #e26946);
+}
+
+.battle-bar.burned span {
+  background: linear-gradient(90deg, #7ea0ff, #315dd7);
+}
+
+.battle-bar.deficit span {
+  background: linear-gradient(90deg, #35d89c, #1d7d6a);
+}
+
+.battle-bar small {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.32);
+}
+
+.battle-rate {
+  justify-self: end;
+  font-size: 28px;
+  color: #aaf3d5;
+}
+
+.empty-battle {
+  border: 1px dashed rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  padding: 18px;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .game-card {
@@ -955,8 +1140,18 @@ input {
   .form-grid,
   .photo-grid,
   .member-grid,
-  .season-summary {
+  .season-summary,
+  .battle-summary,
+  .teammate-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .battle-row {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-rate {
+    justify-self: start;
   }
 }
 
@@ -987,7 +1182,9 @@ input {
   .form-grid,
   .photo-grid,
   .member-grid,
-  .season-summary {
+  .season-summary,
+  .battle-summary,
+  .teammate-form {
     grid-template-columns: 1fr;
   }
 
