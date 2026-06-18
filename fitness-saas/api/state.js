@@ -9,6 +9,8 @@ const emptyState = {
   groupName: "我的燃脂小组",
   currentChallenge: "",
   completedChallenges: {},
+  groupMemberIds: [],
+  groupRequests: [],
   users: [],
   body: [],
   foods: [],
@@ -26,11 +28,25 @@ function normalizeState(state = {}) {
     ...emptyState,
     ...state,
     completedChallenges: state.completedChallenges || {},
+    groupMemberIds: Array.isArray(state.groupMemberIds) ? [...new Set(state.groupMemberIds.filter(Boolean))] : [],
+    groupRequests: normalizeGroupRequests(state.groupRequests),
     users: Array.isArray(state.users) ? state.users : [],
     body: Array.isArray(state.body) ? state.body : [],
     foods: Array.isArray(state.foods) ? state.foods : [],
     workouts: Array.isArray(state.workouts) ? state.workouts : []
   };
+}
+
+function normalizeGroupRequests(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((request, index) => ({
+    id: request.id || `group-request-${index}`,
+    type: request.type || "invite",
+    fromUserId: request.fromUserId || "",
+    toUserId: request.toUserId || "",
+    status: request.status || "pending",
+    createdAt: request.createdAt || new Date().toISOString().slice(0, 10)
+  }));
 }
 
 async function readStream(stream) {

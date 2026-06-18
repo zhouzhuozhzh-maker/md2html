@@ -260,20 +260,24 @@
               <input id="groupName" type="text" placeholder="小组名称，例如：六月燃脂队" />
               <button class="primary" id="saveGroupName">保存小组</button>
             </div>
-            <div class="search-row">
-              <input id="userSearch" type="search" placeholder="搜索用户 ID，如 teammate01" />
-              <button class="primary" id="addUser">加入小组</button>
+            <div class="group-toolbar">
+              <input id="userSearch" type="search" placeholder="搜索全局用户 ID，发起加入请求" />
+              <button class="primary" id="addUser">邀请加入</button>
             </div>
             <div id="searchResult" class="search-result"></div>
-            <form id="teammateForm" class="teammate-form">
-              <label>队友 ID<input type="text" name="id" placeholder="例如 runner02" required /></label>
-              <label>昵称<input type="text" name="name" placeholder="队友昵称" required /></label>
-              <label>基础代谢 kcal<input type="number" name="bmr" min="500" max="5000" step="1" required /></label>
-              <label>今日摄入 kcal<input type="number" name="intake" min="0" step="1" /></label>
-              <label>今日运动 kcal<input type="number" name="burned" min="0" step="1" /></label>
-              <label class="file-input">头像<input type="file" name="avatar" accept="image/*" /></label>
-              <button class="secondary" type="submit">快速添加队友</button>
-            </form>
+            <div class="group-subhead">
+              <h4>全局用户目录</h4>
+              <small>这里列出当前数据库里已经注册的账号和角色。</small>
+            </div>
+            <div id="userDirectory" class="member-grid directory-grid"></div>
+            <div class="group-subhead">
+              <h4>待处理请求</h4>
+              <small>收到邀请后点同意，加入后全员看到同一份成员列表。</small>
+            </div>
+            <div id="groupRequests" class="request-list"></div>
+            <div class="group-subhead">
+              <h4>小组成员</h4>
+            </div>
             <div id="groupMembers" class="member-grid"></div>
           </section>
           <section class="panel group-battle-panel">

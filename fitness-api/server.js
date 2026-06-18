@@ -41,6 +41,12 @@ function readJson(req) {
 }
 
 function normalizeState(state) {
+  const users = Array.isArray(state.users) ? state.users : [];
+  const legacyGroupMemberIds = users.filter((user) => user.group !== false).map((user) => user.id);
+  const unique = (values) => [...new Set(values.filter(Boolean))];
+  const groupMemberIds = Array.isArray(state.groupMemberIds) && state.groupMemberIds.length
+    ? unique(state.groupMemberIds)
+    : unique(legacyGroupMemberIds);
   return {
     activeUserId: state.activeUserId || "",
     selectedPeriod: state.selectedPeriod || "week",
@@ -48,10 +54,12 @@ function normalizeState(state) {
     groupName: state.groupName || "我的燃脂小组",
     currentChallenge: state.currentChallenge || "",
     completedChallenges: state.completedChallenges || {},
-    users: state.users || [],
-    body: state.body || [],
-    foods: state.foods || [],
-    workouts: state.workouts || []
+    groupMemberIds,
+    groupRequests: Array.isArray(state.groupRequests) ? state.groupRequests : [],
+    users,
+    body: Array.isArray(state.body) ? state.body : [],
+    foods: Array.isArray(state.foods) ? state.foods : [],
+    workouts: Array.isArray(state.workouts) ? state.workouts : []
   };
 }
 
@@ -137,6 +145,7 @@ function createSqliteStore() {
         avatar: row.avatar || "",
         group: Boolean(row.in_group)
       }));
+      const legacyGroupMemberIds = users.filter((user) => user.group !== false).map((user) => user.id);
 
       const body = db.prepare("SELECT * FROM body_records ORDER BY date ASC, id ASC").all().map((row) => ({
         userId: row.user_id,
@@ -171,6 +180,16 @@ function createSqliteStore() {
         completedChallenges[`${row.user_id}:${row.date}`] = row.challenge;
       });
 
+      const parseMetaJson = (key, fallback) => {
+        const raw = getMeta(key, "");
+        if (!raw) return fallback;
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return fallback;
+        }
+      };
+
       return normalizeState({
         activeUserId: getMeta("activeUserId", users[0]?.id || ""),
         selectedPeriod: getMeta("selectedPeriod", "week"),
@@ -178,6 +197,8 @@ function createSqliteStore() {
         groupName: getMeta("groupName", "我的燃脂小组"),
         currentChallenge: getMeta("currentChallenge", ""),
         completedChallenges,
+        groupMemberIds: parseMetaJson("groupMemberIds", legacyGroupMemberIds),
+        groupRequests: parseMetaJson("groupRequests", []),
         users,
         body,
         foods,
@@ -198,7 +219,7 @@ function createSqliteStore() {
 
         const insertUser = db.prepare("INSERT INTO users (id, name, role, avatar, in_group) VALUES (?, ?, ?, ?, ?)");
         for (const user of state.users) {
-          insertUser.run(user.id, user.name, user.role || "成员", user.avatar || "", user.group ? 1 : 0);
+          insertUser.run(user.id, user.name, user.role || "成员", user.avatar || "", state.groupMemberIds.includes(user.id) ? 1 : 0);
         }
 
         const insertBody = db.prepare("INSERT INTO body_records (user_id, date, bmr, weight, body_fat, waist, note) VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -227,6 +248,8 @@ function createSqliteStore() {
         setMeta("groupPeriod", state.groupPeriod);
         setMeta("groupName", state.groupName);
         setMeta("currentChallenge", state.currentChallenge);
+        setMeta("groupMemberIds", JSON.stringify(state.groupMemberIds || []));
+        setMeta("groupRequests", JSON.stringify(state.groupRequests || []));
 
         db.exec("COMMIT");
       } catch (error) {
@@ -329,11 +352,22 @@ async function createPostgresStore() {
         avatar: row.avatar || "",
         group: Boolean(row.in_group)
       }));
+      const legacyGroupMemberIds = users.filter((user) => user.group !== false).map((user) => user.id);
 
       const completedChallenges = {};
       challengeRows.rows.forEach((row) => {
         completedChallenges[`${row.user_id}:${row.date}`] = row.challenge;
       });
+
+      const parseMetaJson = async (key, fallback) => {
+        const raw = await getMeta(key, "");
+        if (!raw) return fallback;
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return fallback;
+        }
+      };
 
       return normalizeState({
         activeUserId: await getMeta("activeUserId", users[0]?.id || ""),
@@ -342,6 +376,8 @@ async function createPostgresStore() {
         groupName: await getMeta("groupName", "我的燃脂小组"),
         currentChallenge: await getMeta("currentChallenge", ""),
         completedChallenges,
+        groupMemberIds: await parseMetaJson("groupMemberIds", legacyGroupMemberIds),
+        groupRequests: await parseMetaJson("groupRequests", []),
         users,
         body: bodyRows.rows.map((row) => ({
           userId: row.user_id,
@@ -387,7 +423,7 @@ async function createPostgresStore() {
             user.name,
             user.role || "成员",
             user.avatar || "",
-            Boolean(user.group)
+            state.groupMemberIds.includes(user.id)
           ]);
         }
 
@@ -437,6 +473,8 @@ async function createPostgresStore() {
         await setMeta(client, "groupPeriod", state.groupPeriod);
         await setMeta(client, "groupName", state.groupName);
         await setMeta(client, "currentChallenge", state.currentChallenge);
+        await setMeta(client, "groupMemberIds", JSON.stringify(state.groupMemberIds || []));
+        await setMeta(client, "groupRequests", JSON.stringify(state.groupRequests || []));
         await client.query("COMMIT");
       } catch (error) {
         await client.query("ROLLBACK");

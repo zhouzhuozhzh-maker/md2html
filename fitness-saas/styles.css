@@ -270,7 +270,7 @@ button {
 .preview-bars {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  align-items: end;
+  align-items: flex-end;
   gap: 8px;
   margin-top: auto;
   min-height: 120px;
@@ -852,8 +852,10 @@ input:focus {
 }
 
 .empty-rank {
-  align-items: start;
+  display: flex;
+  align-items: flex-start;
   flex-direction: column;
+  gap: 4px;
   color: var(--muted);
 }
 
@@ -1092,29 +1094,78 @@ input:focus {
   margin-bottom: 12px;
 }
 
-.teammate-form {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+.group-toolbar {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  margin: 14px 0 18px;
+  margin: 14px 0 8px;
+}
+
+.group-toolbar input {
+  flex: 1 1 260px;
+}
+
+.group-subhead {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 10px;
+}
+
+.group-subhead h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.group-subhead small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.directory-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.request-list {
+  display: grid;
+  gap: 10px;
+}
+
+.request-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px;
   background:
-    linear-gradient(135deg, rgba(29, 125, 106, 0.08), rgba(226, 105, 70, 0.08)),
-    rgba(255, 255, 255, 0.82);
+    linear-gradient(135deg, rgba(29, 125, 106, 0.08), rgba(226, 105, 70, 0.06)),
+    rgba(255, 255, 255, 0.9);
 }
 
-.teammate-form label {
-  display: grid;
-  gap: 6px;
+.request-card strong {
+  display: block;
+}
+
+.request-card small {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
 }
 
-.teammate-form button {
-  align-self: end;
+.request-actions {
+  display: inline-flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.request-actions .pill {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.invite-user:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .search-result {
@@ -1130,6 +1181,12 @@ input:focus {
 
 .member-card {
   min-height: 116px;
+}
+
+.directory-card p {
+  margin: 8px 0 10px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .member-remove {
@@ -1385,9 +1442,9 @@ input:focus {
   .form-grid,
   .photo-grid,
   .member-grid,
+  .directory-grid,
   .season-summary,
-  .battle-summary,
-  .teammate-form {
+  .battle-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1441,10 +1498,19 @@ input:focus {
   .form-grid,
   .photo-grid,
   .member-grid,
+  .directory-grid,
   .season-summary,
-  .battle-summary,
-  .teammate-form {
+  .battle-summary {
     grid-template-columns: 1fr;
+  }
+
+  .request-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .request-actions {
+    width: 100%;
   }
 
   .chart-head {

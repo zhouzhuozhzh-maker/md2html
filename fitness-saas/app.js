@@ -32,6 +32,15 @@ function loadState() {
 }
 
 function normalizeState(value) {
+  const users = Array.isArray(value.users) ? value.users : [];
+  const explicitGroupMemberIds = Array.isArray(value.groupMemberIds) ? value.groupMemberIds : [];
+  const legacyGroupMemberIds = users.filter((user) => user.group !== false).map((user) => user.id);
+  const groupMemberIds = unique(
+    (explicitGroupMemberIds.length ? explicitGroupMemberIds : legacyGroupMemberIds).filter((id) =>
+      users.some((user) => user.id === id)
+    )
+  );
+
   return {
     activeUserId: "",
     selectedPeriod: "week",
@@ -43,8 +52,27 @@ function normalizeState(value) {
     body: [],
     foods: [],
     workouts: [],
-    ...value
+    ...value,
+    users,
+    groupMemberIds,
+    groupRequests: normalizeGroupRequests(value.groupRequests)
   };
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function normalizeGroupRequests(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((request, index) => ({
+    id: request.id || `group-request-${index}`,
+    type: request.type || "invite",
+    fromUserId: request.fromUserId || "",
+    toUserId: request.toUserId || "",
+    status: request.status || "pending",
+    createdAt: request.createdAt || today
+  }));
 }
 
 function bufferToBase64Url(buffer) {
@@ -72,6 +100,68 @@ async function verifyPassword(user, password) {
     return (await hashPassword(password, user.passwordSalt)) === user.passwordHash;
   }
   return password === user.id;
+}
+
+function isGroupMember(userId) {
+  return (state.groupMemberIds || []).includes(userId);
+}
+
+function groupMembers() {
+  return state.users.filter((user) => isGroupMember(user.id));
+}
+
+function pendingRequestsFor(userId) {
+  return (state.groupRequests || []).filter(
+    (request) => request.status === "pending" && request.toUserId === userId
+  );
+}
+
+function sentRequestsBy(userId) {
+  return (state.groupRequests || []).filter(
+    (request) => request.status === "pending" && request.fromUserId === userId
+  );
+}
+
+function hasPendingRequest(fromUserId, toUserId) {
+  return (state.groupRequests || []).some(
+    (request) =>
+      request.status === "pending" &&
+      request.type === "invite" &&
+      request.fromUserId === fromUserId &&
+      request.toUserId === toUserId
+  );
+}
+
+function createGroupRequest(type, fromUserId, toUserId) {
+  const existing = (state.groupRequests || []).find(
+    (request) =>
+      request.status === "pending" &&
+      request.type === type &&
+      request.fromUserId === fromUserId &&
+      request.toUserId === toUserId
+  );
+  if (existing) return existing;
+
+  const request = {
+    id: `group-request-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    type,
+    fromUserId,
+    toUserId,
+    status: "pending",
+    createdAt: today
+  };
+  state.groupRequests = [...(state.groupRequests || []), request];
+  return request;
+}
+
+function resolveGroupRequest(requestId, status) {
+  state.groupRequests = (state.groupRequests || []).map((request) =>
+    request.id === requestId ? { ...request, status } : request
+  );
+}
+
+function addGroupMember(userId) {
+  state.groupMemberIds = unique([...(state.groupMemberIds || []), userId]);
 }
 
 function saveState() {
@@ -208,10 +298,6 @@ function rankedUsers(period = "week") {
   return groupMembers()
     .map((user) => ({ ...user, totals: userTotals(user.id, period) }))
     .sort((a, b) => b.totals.deficitRate - a.totals.deficitRate);
-}
-
-function groupMembers() {
-  return state.users.filter((user) => user.group);
 }
 
 async function readFileAsDataUrl(file) {
@@ -417,16 +503,61 @@ function renderGroup() {
   state.groupName ||= "我的燃脂小组";
   state.groupPeriod ||= "week";
   const members = groupMembers();
-  $("#memberCount").textContent = `${members.length} 人`;
+  const pendingRequests = pendingRequestsFor(state.activeUserId);
+  const sentRequests = sentRequestsBy(state.activeUserId);
+  const query = $("#userSearch").value.trim().toLowerCase();
+  const directory = state.users
+    .filter((user) => {
+      const role = String(user.role || "");
+      return !query || user.id.toLowerCase().includes(query) || user.name.toLowerCase().includes(query) || role.toLowerCase().includes(query);
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  $("#memberCount").textContent = `${members.length} 人 · ${pendingRequests.length} 待处理`;
   $("#groupName").value = state.groupName;
+  $("#searchResult").textContent = sentRequests.length
+    ? `已发出 ${sentRequests.length} 个待确认请求。`
+    : `搜索全局用户 ID，邀请后对方需要确认。`;
+  $("#userDirectory").innerHTML = directory.length
+    ? directory.map((user) => {
+      const member = isGroupMember(user.id);
+      const waiting = hasPendingRequest(state.activeUserId, user.id);
+      const avatar = user.avatar ? `<img src="${user.avatar}" alt="${escapeHtml(user.name)}">` : escapeHtml(user.name.slice(0, 1));
+      return `<div class="member-card directory-card">
+        <div class="avatar">${avatar}</div>
+        <strong>${escapeHtml(user.name)}</strong>
+        <small>${escapeHtml(user.id)} · ${escapeHtml(user.role)}</small>
+        <p>${member ? "已在小组" : waiting ? "邀请已发送" : "可邀请加入"}</p>
+        <button class="ghost invite-user" data-user-id="${escapeHtml(user.id)}" ${member || user.id === state.activeUserId || waiting ? "disabled" : ""}>${member ? "已加入" : waiting ? "等待确认" : "邀请加入"}</button>
+      </div>`;
+    }).join("")
+    : `<div class="empty-rank">没有匹配的用户。先注册账号，或切换搜索词。</div>`;
+
+  $("#groupRequests").innerHTML = pendingRequests.length
+    ? pendingRequests.map((request) => {
+      const requester = state.users.find((user) => user.id === request.fromUserId);
+      const isMine = request.toUserId === state.activeUserId;
+      return `<div class="request-card">
+        <div>
+          <strong>${escapeHtml(requester?.name || request.fromUserId)} 邀请 ${escapeHtml(request.toUserId)}</strong>
+          <small>${escapeHtml(request.createdAt)} · ${request.type === "invite" ? "邀请入组" : "加入申请"}</small>
+        </div>
+        <div class="request-actions">
+          ${isMine ? `<button class="primary accept-request" data-request-id="${escapeHtml(request.id)}">同意</button><button class="secondary reject-request" data-request-id="${escapeHtml(request.id)}">拒绝</button>` : `<span class="pill">待确认</span>`}
+        </div>
+      </div>`;
+    }).join("")
+    : `<div class="empty-rank">没有待处理请求。</div>`;
+
   $("#groupMembers").innerHTML = members.map((user) => {
     const totals = userTotals(user.id, "week");
+    const avatar = user.avatar ? `<img src="${user.avatar}" alt="${escapeHtml(user.name)}">` : escapeHtml(user.name.slice(0, 1));
     return `<div class="member-card">
-      <div class="avatar">${user.avatar ? `<img src="${user.avatar}" alt="${escapeHtml(user.name)}">` : escapeHtml(user.name.slice(0, 1))}</div>
+      <div class="avatar">${avatar}</div>
       <strong>${escapeHtml(user.name)}</strong>
       <small>${escapeHtml(user.id)} · ${escapeHtml(user.role)}</small>
       <p>本周缺口率 ${Math.round(totals.deficitRate * 100)}%</p>
-      <button class="ghost member-remove" data-user-id="${escapeHtml(user.id)}">移出小组</button>
+      ${user.id === state.activeUserId ? `<span class="pill">当前账号</span>` : ""}
     </div>`;
   }).join("");
   renderGroupBattle();
@@ -534,7 +665,8 @@ function bindEvents() {
     event.target.querySelector('input[name="passwordConfirm"]').setCustomValidity("");
     const passwordSalt = randomBase64Url(16);
     const passwordHash = await hashPassword(password, passwordSalt);
-    state.users.push({ id, name, role, avatar, group: true, passwordSalt, passwordHash });
+    state.users.push({ id, name, role, avatar, passwordSalt, passwordHash });
+    if (!(state.groupMemberIds || []).length) addGroupMember(id);
     state.activeUserId = id;
     saveState();
     event.target.reset();
@@ -661,51 +793,57 @@ function bindEvents() {
       $("#searchResult").textContent = "没有找到该用户 ID。请确认对方已在此设备注册。";
       return;
     }
-    user.group = true;
-    $("#searchResult").textContent = `${user.name} 已加入 ${state.groupName || "健身小组"}。`;
+    if (user.id === state.activeUserId) {
+      $("#searchResult").textContent = "不能邀请自己。";
+      return;
+    }
+    if (isGroupMember(user.id)) {
+      $("#searchResult").textContent = `${user.name} 已经在小组里。`;
+      return;
+    }
+    if (hasPendingRequest(state.activeUserId, user.id)) {
+      $("#searchResult").textContent = `${user.name} 的邀请已经发出，等待确认。`;
+      return;
+    }
+    createGroupRequest("invite", state.activeUserId, user.id);
+    $("#searchResult").textContent = `已向 ${user.name} 发出加入邀请，等待对方确认。`;
     $("#userSearch").value = "";
     saveState();
     renderAll();
   });
 
-  $("#teammateForm").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = new FormData(event.target);
-    const id = String(form.get("id")).trim();
-    const name = String(form.get("name")).trim();
-    const bmr = Number(form.get("bmr"));
-    const intake = Number(form.get("intake") || 0);
-    const burned = Number(form.get("burned") || 0);
-    const avatar = await readFileAsDataUrl(form.get("avatar"));
-    if (!id || !name || !bmr) return;
-    let user = state.users.find((item) => item.id.toLowerCase() === id.toLowerCase());
-    if (!user) {
-      user = { id, name, role: "队友", avatar, group: true };
-      state.users.push(user);
-    } else {
-      user.name = name;
-      user.avatar = avatar || user.avatar;
-      user.group = true;
+  $("#userDirectory").addEventListener("click", (event) => {
+    const button = event.target.closest(".invite-user");
+    if (!button) return;
+    const targetId = button.dataset.userId;
+    const target = state.users.find((item) => item.id === targetId);
+    if (!target || target.id === state.activeUserId) return;
+    if (isGroupMember(target.id)) return;
+    if (hasPendingRequest(state.activeUserId, target.id)) {
+      $("#searchResult").textContent = `${target.name} 的邀请已经发出，等待确认。`;
+      return;
     }
-    state.body = state.body.filter((item) => !(item.userId === id && item.date === today));
-    state.body.push({ userId: id, date: today, bmr, weight: "", bodyFat: "", waist: "", note: "组队快速录入" });
-    if (intake) {
-      state.foods.push({ userId: id, date: today, name: "今日摄入合计", calories: intake, meal: "合计", photo: "" });
-    }
-    if (burned) {
-      state.workouts.push({ userId: id, date: today, activity: "今日运动合计", minutes: 0, calories: burned, photo: "" });
-    }
-    $("#searchResult").textContent = `${name} 已加入 ${state.groupName || "健身小组"}，并生成今天的比拼数据。`;
-    event.target.reset();
+    createGroupRequest("invite", state.activeUserId, target.id);
+    $("#searchResult").textContent = `已向 ${target.name} 发出加入邀请。`;
     saveState();
     renderAll();
   });
 
-  $("#groupMembers").addEventListener("click", (event) => {
-    const button = event.target.closest(".member-remove");
-    if (!button) return;
-    const user = state.users.find((item) => item.id === button.dataset.userId);
-    if (user) user.group = false;
+  $("#groupRequests").addEventListener("click", (event) => {
+    const acceptButton = event.target.closest(".accept-request");
+    const rejectButton = event.target.closest(".reject-request");
+    const requestId = acceptButton?.dataset.requestId || rejectButton?.dataset.requestId;
+    if (!requestId) return;
+    const request = (state.groupRequests || []).find((item) => item.id === requestId);
+    if (!request || request.toUserId !== state.activeUserId) return;
+    if (acceptButton) {
+      addGroupMember(request.toUserId);
+      resolveGroupRequest(requestId, "accepted");
+      $("#searchResult").textContent = `${state.users.find((user) => user.id === request.toUserId)?.name || request.toUserId} 已加入小组。`;
+    } else {
+      resolveGroupRequest(requestId, "rejected");
+      $("#searchResult").textContent = "已拒绝该邀请。";
+    }
     saveState();
     renderAll();
   });
