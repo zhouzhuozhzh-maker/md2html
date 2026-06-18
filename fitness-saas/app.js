@@ -1,5 +1,6 @@
 const today = new Date().toISOString().slice(0, 10);
 const storageKey = "fitrank-team-state-v5";
+const sessionKey = "fitrank-team-session-user";
 const legacyStorageKeys = [
   "fitrank-team-state-v4",
   "fitrank-team-state-v3",
@@ -20,6 +21,7 @@ const challenges = [
 ];
 
 const state = loadState();
+state.activeUserId = loadSessionUserId();
 authMode = state.users.length > 0 ? "login" : "register";
 
 function loadState() {
@@ -73,6 +75,20 @@ function normalizeGroupRequests(value) {
     status: request.status || "pending",
     createdAt: request.createdAt || today
   }));
+}
+
+function loadSessionUserId() {
+  return localStorage.getItem(sessionKey) || "";
+}
+
+function setSessionUser(userId) {
+  state.activeUserId = userId;
+  localStorage.setItem(sessionKey, userId);
+}
+
+function clearSessionUser() {
+  state.activeUserId = "";
+  localStorage.removeItem(sessionKey);
 }
 
 function bufferToBase64Url(buffer) {
@@ -180,8 +196,11 @@ async function hydrateFromBackend() {
     backendAvailable = true;
     const remoteState = normalizeState(await response.json());
     if (remoteState.users.length > 0 || state.users.length === 0) {
+      const sessionUserId = loadSessionUserId();
       isHydratingFromBackend = true;
       Object.assign(state, remoteState);
+      state.activeUserId = remoteState.users.some((user) => user.id === sessionUserId) ? sessionUserId : "";
+      if (!state.activeUserId) localStorage.removeItem(sessionKey);
       localStorage.setItem(storageKey, JSON.stringify(state));
       isHydratingFromBackend = false;
       renderAll();
@@ -198,11 +217,18 @@ async function persistStateToBackend() {
     await fetch("/api/state", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(state)
+      body: JSON.stringify(sharedStatePayload())
     });
   } catch {
     backendAvailable = false;
   }
+}
+
+function sharedStatePayload() {
+  return {
+    ...state,
+    activeUserId: ""
+  };
 }
 
 const $ = (selector) => document.querySelector(selector);
@@ -326,12 +352,9 @@ function setDefaultDates() {
 }
 
 function renderUsers() {
-  $("#activeUser").innerHTML = state.users
-    .map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} · ${escapeHtml(user.id)}</option>`)
-    .join("");
-  $("#activeUser").value = state.activeUserId;
   const user = activeUser();
   $("#activeName").textContent = user ? user.name : "FitRank";
+  $("#activeMeta").textContent = user ? `${user.id} · ${user.role || "成员"}` : "未登录";
   $("#activeAvatar").innerHTML = user?.avatar
     ? `<img src="${user.avatar}" alt="${escapeHtml(user.name)}">`
     : escapeHtml(user?.name?.slice(0, 1) || "F");
@@ -352,7 +375,7 @@ function renderAuthMode() {
   subtitle.textContent =
     authMode === "login"
       ? "已有账号可直接登录，保留你之前录入的体测、饮食和运动记录。"
-      : "先注册一个本地用户，后续可以再接入真正的登录系统和云端数据库。";
+      : "注册后账号会进入全局用户目录，可被邀请加入健身小组。";
 }
 
 function renderDashboard() {
@@ -667,7 +690,7 @@ function bindEvents() {
     const passwordHash = await hashPassword(password, passwordSalt);
     state.users.push({ id, name, role, avatar, passwordSalt, passwordHash });
     if (!(state.groupMemberIds || []).length) addGroupMember(id);
-    state.activeUserId = id;
+    setSessionUser(id);
     saveState();
     event.target.reset();
     renderAll();
@@ -702,7 +725,7 @@ function bindEvents() {
       user.passwordHash = await hashPassword(user.id, user.passwordSalt);
       saveState();
     }
-    state.activeUserId = user.id;
+    setSessionUser(user.id);
     saveState();
     renderAll();
   });
@@ -718,9 +741,9 @@ function bindEvents() {
   $$(".nav-item").forEach((item) => item.addEventListener("click", () => switchView(item.dataset.view)));
   $$("[data-jump]").forEach((item) => item.addEventListener("click", () => switchView(item.dataset.jump)));
 
-  $("#activeUser").addEventListener("change", (event) => {
-    state.activeUserId = event.target.value;
-    saveState();
+  $("#logoutButton").addEventListener("click", () => {
+    clearSessionUser();
+    authMode = "login";
     renderAll();
   });
 

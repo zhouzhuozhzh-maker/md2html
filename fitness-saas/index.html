@@ -53,20 +53,20 @@
             </div>
           </div>
           <form id="loginForm" class="auth-form auth-mode" data-auth-mode="login">
-            <label>账号<input type="text" name="id" placeholder="例如 zhou001" autocomplete="username" required /></label>
-            <label>密码<input type="password" name="password" placeholder="请输入密码" autocomplete="current-password" required /></label>
+            <label>账号<input type="text" name="id" placeholder="例如 zhou001" autocomplete="username" pattern="[A-Za-z0-9_-]{3,24}" required /></label>
+            <label>密码<input type="password" name="password" placeholder="请输入密码" autocomplete="current-password" minlength="6" required /></label>
             <button class="secondary" type="submit">登录进入</button>
           </form>
           <form id="registerForm" class="auth-form auth-mode hidden" data-auth-mode="register">
-            <label>账号<input type="text" name="id" placeholder="例如 zhou001" autocomplete="username" required /></label>
-            <label>密码<input type="password" name="password" placeholder="设置登录密码" autocomplete="new-password" required /></label>
-            <label>确认密码<input type="password" name="passwordConfirm" placeholder="再输入一次密码" autocomplete="new-password" required /></label>
+            <label>账号<input type="text" name="id" placeholder="例如 zhou001" autocomplete="username" pattern="[A-Za-z0-9_-]{3,24}" required /></label>
+            <label>密码<input type="password" name="password" placeholder="设置登录密码" autocomplete="new-password" minlength="6" required /></label>
+            <label>确认密码<input type="password" name="passwordConfirm" placeholder="再输入一次密码" autocomplete="new-password" minlength="6" required /></label>
             <label>昵称<input type="text" name="name" placeholder="你的昵称" required /></label>
             <label>角色/部门<input type="text" name="role" placeholder="例如 研发、产品、运营" /></label>
             <label class="file-input">头像<input type="file" name="avatar" accept="image/*" /></label>
             <button class="primary" type="submit">注册并进入</button>
           </form>
-          <small id="loginHint" class="auth-hint">账号密码登录，不再依赖账号列表。</small>
+          <small id="loginHint" class="auth-hint">账号 ID 全局唯一，登录会话只保存在当前设备。</small>
         </div>
       </div>
     </section>
@@ -97,13 +97,15 @@
             <p class="eyebrow">Health SaaS</p>
             <h1>热量缺口率，才是唯一排名指标</h1>
           </div>
-          <div class="user-switcher">
+          <div class="account-menu">
             <div class="active-profile">
               <span class="profile-avatar" id="activeAvatar">F</span>
-              <span id="activeName">FitRank</span>
+              <span>
+                <strong id="activeName">FitRank</strong>
+                <small id="activeMeta">未登录</small>
+              </span>
             </div>
-            <label for="activeUser">切换账号</label>
-            <select id="activeUser"></select>
+            <button class="ghost" id="logoutButton" type="button">退出登录</button>
           </div>
         </header>
 
