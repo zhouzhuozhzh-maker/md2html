@@ -180,6 +180,44 @@ function addGroupMember(userId) {
   state.groupMemberIds = unique([...(state.groupMemberIds || []), userId]);
 }
 
+function mergeStates(remote, local) {
+  const remoteState = normalizeState(remote);
+  const localState = normalizeState(local);
+  const userMap = new Map(remoteState.users.map((user) => [user.id.toLowerCase(), user]));
+  localState.users.forEach((user) => userMap.set(user.id.toLowerCase(), { ...userMap.get(user.id.toLowerCase()), ...user }));
+
+  return normalizeState({
+    ...remoteState,
+    selectedPeriod: localState.selectedPeriod || remoteState.selectedPeriod,
+    groupPeriod: localState.groupPeriod || remoteState.groupPeriod,
+    groupName: localState.groupName || remoteState.groupName,
+    currentChallenge: localState.currentChallenge || remoteState.currentChallenge,
+    completedChallenges: { ...remoteState.completedChallenges, ...localState.completedChallenges },
+    users: [...userMap.values()],
+    groupMemberIds: unique([...(remoteState.groupMemberIds || []), ...(localState.groupMemberIds || [])]),
+    groupRequests: mergeById(remoteState.groupRequests, localState.groupRequests),
+    body: mergeRecords(remoteState.body, localState.body),
+    foods: mergeRecords(remoteState.foods, localState.foods),
+    workouts: mergeRecords(remoteState.workouts, localState.workouts)
+  });
+}
+
+function mergeById(remoteItems, localItems) {
+  const map = new Map();
+  [...(remoteItems || []), ...(localItems || [])].forEach((item, index) => {
+    map.set(item.id || `item-${index}`, { ...map.get(item.id || `item-${index}`), ...item });
+  });
+  return [...map.values()];
+}
+
+function mergeRecords(remoteItems, localItems) {
+  const map = new Map();
+  [...(remoteItems || []), ...(localItems || [])].forEach((item) => {
+    map.set(JSON.stringify(item), item);
+  });
+  return [...map.values()];
+}
+
 function saveState() {
   state.groupName ||= "我的燃脂小组";
   state.groupPeriod ||= "week";
@@ -189,24 +227,24 @@ function saveState() {
   }
 }
 
-async function hydrateFromBackend() {
+async function hydrateFromBackend(shouldRender = true) {
   try {
     const response = await fetch("/api/state", { cache: "no-store" });
     if (!response.ok) return;
     backendAvailable = true;
     const remoteState = normalizeState(await response.json());
-    if (remoteState.users.length > 0 || state.users.length === 0) {
-      const sessionUserId = loadSessionUserId();
-      isHydratingFromBackend = true;
-      Object.assign(state, remoteState);
-      state.activeUserId = remoteState.users.some((user) => user.id === sessionUserId) ? sessionUserId : "";
-      if (!state.activeUserId) localStorage.removeItem(sessionKey);
-      localStorage.setItem(storageKey, JSON.stringify(state));
-      isHydratingFromBackend = false;
-      renderAll();
-    } else {
-      persistStateToBackend();
+    const sessionUserId = loadSessionUserId();
+    const mergedState = mergeStates(remoteState, state);
+    isHydratingFromBackend = true;
+    Object.assign(state, mergedState);
+    state.activeUserId = mergedState.users.some((user) => user.id === sessionUserId) ? sessionUserId : "";
+    if (!state.activeUserId) localStorage.removeItem(sessionKey);
+    localStorage.setItem(storageKey, JSON.stringify(state));
+    isHydratingFromBackend = false;
+    if (JSON.stringify(sharedStatePayload(remoteState)) !== JSON.stringify(sharedStatePayload(mergedState))) {
+      await persistStateToBackend();
     }
+    if (shouldRender) renderAll();
   } catch {
     backendAvailable = false;
   }
@@ -214,19 +252,22 @@ async function hydrateFromBackend() {
 
 async function persistStateToBackend() {
   try {
-    await fetch("/api/state", {
+    const response = await fetch("/api/state", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(sharedStatePayload())
     });
+    backendAvailable = response.ok;
+    return response.ok;
   } catch {
     backendAvailable = false;
+    return false;
   }
 }
 
-function sharedStatePayload() {
+function sharedStatePayload(value = state) {
   return {
-    ...state,
+    ...value,
     activeUserId: ""
   };
 }
@@ -665,6 +706,7 @@ function bindEvents() {
 
   $("#registerForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    await hydrateFromBackend(false);
     const form = new FormData(event.target);
     const id = String(form.get("id")).trim();
     const name = String(form.get("name")).trim();
@@ -692,6 +734,7 @@ function bindEvents() {
     if (!(state.groupMemberIds || []).length) addGroupMember(id);
     setSessionUser(id);
     saveState();
+    await persistStateToBackend();
     event.target.reset();
     renderAll();
   });
