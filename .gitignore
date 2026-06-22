@@ -4,3 +4,6 @@ dist/
 .DS_Store
 fitness-api/data/
 .vercel
+
+# Local Netlify folder
+.netlify

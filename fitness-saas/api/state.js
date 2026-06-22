@@ -19,9 +19,40 @@ const emptyState = {
 };
 
 function sendJson(response, status, payload) {
+  if (isNetlifyResponse(response)) {
+    return new Response(JSON.stringify(payload), {
+      status,
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=utf-8"
+      }
+    });
+  }
+
   response.status(status).setHeader("cache-control", "no-store");
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.json(payload);
+  return null;
+}
+
+function isNetlifyResponse(value) {
+  return value && typeof value === "object" && !("status" in value && "json" in value);
+}
+
+function requestMethod(request) {
+  return request.method || request.httpMethod || "GET";
+}
+
+async function readJsonBody(request) {
+  if (request && typeof request.body === "string") {
+    if (!request.body) return {};
+    if (request.isBase64Encoded) {
+      return JSON.parse(Buffer.from(request.body, "base64").toString("utf8"));
+    }
+    return JSON.parse(request.body);
+  }
+
+  return request.body || {};
 }
 
 function normalizeState(state = {}) {
@@ -96,20 +127,43 @@ async function saveState(state) {
 
 export default async function handler(request, response) {
   try {
-    if (request.method === "GET") {
-      sendJson(response, 200, await loadState());
+    const method = requestMethod(request);
+
+    if (method === "GET") {
+      const payload = await loadState();
+      const result = sendJson(response, 200, payload);
+      if (result) return result;
       return;
     }
 
-    if (request.method === "POST") {
-      await saveState(request.body || {});
-      sendJson(response, 200, { ok: true });
+    if (method === "POST") {
+      const body = await readJsonBody(request);
+      await saveState(body || {});
+      const result = sendJson(response, 200, { ok: true });
+      if (result) return result;
       return;
+    }
+
+    if (isNetlifyResponse(response)) {
+      return new Response(JSON.stringify({ ok: false, error: "Method not allowed" }), {
+        status: 405,
+        headers: {
+          allow: "GET, POST",
+          "content-type": "application/json; charset=utf-8"
+        }
+      });
     }
 
     response.setHeader("allow", "GET, POST");
     sendJson(response, 405, { ok: false, error: "Method not allowed" });
   } catch (error) {
-    sendJson(response, 500, { ok: false, error: error.message });
+    const payload = { ok: false, error: error.message };
+    if (isNetlifyResponse(response)) {
+      return new Response(JSON.stringify(payload), {
+        status: 500,
+        headers: { "content-type": "application/json; charset=utf-8" }
+      });
+    }
+    sendJson(response, 500, payload);
   }
 }
