@@ -44,6 +44,8 @@ fitness-saas/index.html
 
 线上设置了 `DATABASE_URL` 后，服务会自动创建 Postgres 表，不再使用会随部署丢失的本地 SQLite 文件。
 
+Netlify 站点也支持同样的数据库模式：只要给 `fitness-saas` 配上 `DATABASE_URL`，`/api/state` 会优先写 Postgres，并在首次启动时从旧的 Blob 状态自动迁移。
+
 ## 已支持
 
 - 每个用户独立上传体测信息：体重、体脂、腰围、备注。

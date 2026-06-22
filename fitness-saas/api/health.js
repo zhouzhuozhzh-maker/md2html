@@ -6,7 +6,7 @@ export default function handler(_request, response) {
   const payload = {
     ok: true,
     runtime: process.env.NETLIFY ? "netlify-functions" : "vercel-functions",
-    storage: process.env.BLOB_READ_WRITE_TOKEN ? "vercel-blob" : "missing-blob-token"
+    storage: process.env.DATABASE_URL ? "postgres" : process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "missing-storage"
   };
 
   if (isNetlifyResponse(response)) {
