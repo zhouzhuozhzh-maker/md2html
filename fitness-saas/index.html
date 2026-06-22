@@ -9,7 +9,7 @@
   <body>
     <section class="auth-screen" id="authScreen">
       <div class="auth-layout">
-          <div class="auth-hero">
+        <div class="auth-hero">
           <div class="brand auth-brand">
             <span class="brand-mark">F</span>
             <div>
@@ -67,6 +67,7 @@
             <button class="primary" type="submit">注册并进入</button>
           </form>
           <small id="loginHint" class="auth-hint">账号 ID 全局唯一，登录会话只保存在当前设备。</small>
+          <small id="authStatus" class="auth-status" aria-live="polite"></small>
         </div>
       </div>
     </section>
@@ -105,6 +106,7 @@
                 <small id="activeMeta">未登录</small>
               </span>
             </div>
+            <span class="sync-badge" id="syncBadge">同步中</span>
             <button class="ghost" id="logoutButton" type="button">退出登录</button>
           </div>
         </header>
@@ -115,7 +117,7 @@
               <p class="eyebrow">Daily Deficit</p>
               <h2 id="dailyHeadline">注册后先上传基础代谢</h2>
               <p id="dailySummary">系统会把每日摄入与运动统一换算成热量缺口，再和基础代谢做比值，作为你的核心竞争指标。</p>
-              <div class="hero-actions">
+              <div class="hero-actions" id="heroActions">
                 <button class="primary" data-jump="food">拍照记一餐</button>
                 <button class="secondary" data-jump="workout">记录一次运动</button>
               </div>
@@ -137,6 +139,8 @@
               </div>
             </div>
           </div>
+
+          <section class="flow-panel" id="flowPanel"></section>
 
           <div class="grid two">
             <section class="panel">
@@ -265,6 +269,7 @@
             <div class="group-toolbar">
               <input id="userSearch" type="search" placeholder="搜索全局用户 ID，发起加入请求" />
               <button class="primary" id="addUser">邀请加入</button>
+              <button class="secondary" id="refreshUsers" type="button">刷新用户</button>
             </div>
             <div id="searchResult" class="search-result"></div>
             <div class="group-subhead">

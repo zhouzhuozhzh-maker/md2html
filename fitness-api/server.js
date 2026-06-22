@@ -44,6 +44,7 @@ function normalizeState(state) {
   const users = Array.isArray(state.users) ? state.users : [];
   const legacyGroupMemberIds = users.filter((user) => user.group !== false).map((user) => user.id);
   const unique = (values) => [...new Set(values.filter(Boolean))];
+  const isPlainObject = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
   const groupMemberIds = Array.isArray(state.groupMemberIds) && state.groupMemberIds.length
     ? unique(state.groupMemberIds)
     : unique(legacyGroupMemberIds);
@@ -53,7 +54,8 @@ function normalizeState(state) {
     groupPeriod: state.groupPeriod || "week",
     groupName: state.groupName || "我的燃脂小组",
     currentChallenge: state.currentChallenge || "",
-    completedChallenges: state.completedChallenges || {},
+    currentChallenges: isPlainObject(state.currentChallenges) ? state.currentChallenges : {},
+    completedChallenges: isPlainObject(state.completedChallenges) ? state.completedChallenges : {},
     groupMemberIds,
     groupRequests: Array.isArray(state.groupRequests) ? state.groupRequests : [],
     users,
@@ -74,6 +76,8 @@ function createSqliteStore() {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT '成员',
       avatar TEXT,
+      password_salt TEXT,
+      password_hash TEXT,
       in_group INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -125,6 +129,10 @@ function createSqliteStore() {
     );
   `);
 
+  const userColumns = new Set(db.prepare("PRAGMA table_info(users)").all().map((row) => row.name));
+  if (!userColumns.has("password_salt")) db.exec("ALTER TABLE users ADD COLUMN password_salt TEXT");
+  if (!userColumns.has("password_hash")) db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+
   const getMeta = (key, fallback = "") => db.prepare("SELECT value FROM app_meta WHERE key = ?").get(key)?.value ?? fallback;
   const setMeta = (key, value) => {
     db.prepare(`
@@ -143,6 +151,8 @@ function createSqliteStore() {
         name: row.name,
         role: row.role,
         avatar: row.avatar || "",
+        passwordSalt: row.password_salt || "",
+        passwordHash: row.password_hash || "",
         group: Boolean(row.in_group)
       }));
       const legacyGroupMemberIds = users.filter((user) => user.group !== false).map((user) => user.id);
@@ -196,6 +206,7 @@ function createSqliteStore() {
         groupPeriod: getMeta("groupPeriod", "week"),
         groupName: getMeta("groupName", "我的燃脂小组"),
         currentChallenge: getMeta("currentChallenge", ""),
+        currentChallenges: parseMetaJson("currentChallenges", {}),
         completedChallenges,
         groupMemberIds: parseMetaJson("groupMemberIds", legacyGroupMemberIds),
         groupRequests: parseMetaJson("groupRequests", []),
@@ -217,9 +228,9 @@ function createSqliteStore() {
           DELETE FROM users;
         `);
 
-        const insertUser = db.prepare("INSERT INTO users (id, name, role, avatar, in_group) VALUES (?, ?, ?, ?, ?)");
+        const insertUser = db.prepare("INSERT INTO users (id, name, role, avatar, password_salt, password_hash, in_group) VALUES (?, ?, ?, ?, ?, ?, ?)");
         for (const user of state.users) {
-          insertUser.run(user.id, user.name, user.role || "成员", user.avatar || "", state.groupMemberIds.includes(user.id) ? 1 : 0);
+          insertUser.run(user.id, user.name, user.role || "成员", user.avatar || "", user.passwordSalt || "", user.passwordHash || "", state.groupMemberIds.includes(user.id) ? 1 : 0);
         }
 
         const insertBody = db.prepare("INSERT INTO body_records (user_id, date, bmr, weight, body_fat, waist, note) VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -248,6 +259,7 @@ function createSqliteStore() {
         setMeta("groupPeriod", state.groupPeriod);
         setMeta("groupName", state.groupName);
         setMeta("currentChallenge", state.currentChallenge);
+        setMeta("currentChallenges", JSON.stringify(state.currentChallenges || {}));
         setMeta("groupMemberIds", JSON.stringify(state.groupMemberIds || []));
         setMeta("groupRequests", JSON.stringify(state.groupRequests || []));
 
@@ -274,6 +286,8 @@ async function createPostgresStore() {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT '成员',
       avatar TEXT,
+      password_salt TEXT,
+      password_hash TEXT,
       in_group BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -322,6 +336,9 @@ async function createPostgresStore() {
     );
   `);
 
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_salt TEXT");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT");
+
   const getMeta = async (key, fallback = "") => {
     const result = await pool.query("SELECT value FROM app_meta WHERE key = $1", [key]);
     return result.rows[0]?.value ?? fallback;
@@ -350,6 +367,8 @@ async function createPostgresStore() {
         name: row.name,
         role: row.role,
         avatar: row.avatar || "",
+        passwordSalt: row.password_salt || "",
+        passwordHash: row.password_hash || "",
         group: Boolean(row.in_group)
       }));
       const legacyGroupMemberIds = users.filter((user) => user.group !== false).map((user) => user.id);
@@ -375,6 +394,7 @@ async function createPostgresStore() {
         groupPeriod: await getMeta("groupPeriod", "week"),
         groupName: await getMeta("groupName", "我的燃脂小组"),
         currentChallenge: await getMeta("currentChallenge", ""),
+        currentChallenges: await parseMetaJson("currentChallenges", {}),
         completedChallenges,
         groupMemberIds: await parseMetaJson("groupMemberIds", legacyGroupMemberIds),
         groupRequests: await parseMetaJson("groupRequests", []),
@@ -418,11 +438,13 @@ async function createPostgresStore() {
         await client.query("DELETE FROM users");
 
         for (const user of state.users) {
-          await client.query("INSERT INTO users (id, name, role, avatar, in_group) VALUES ($1, $2, $3, $4, $5)", [
+          await client.query("INSERT INTO users (id, name, role, avatar, password_salt, password_hash, in_group) VALUES ($1, $2, $3, $4, $5, $6, $7)", [
             user.id,
             user.name,
             user.role || "成员",
             user.avatar || "",
+            user.passwordSalt || "",
+            user.passwordHash || "",
             state.groupMemberIds.includes(user.id)
           ]);
         }
@@ -473,6 +495,7 @@ async function createPostgresStore() {
         await setMeta(client, "groupPeriod", state.groupPeriod);
         await setMeta(client, "groupName", state.groupName);
         await setMeta(client, "currentChallenge", state.currentChallenge);
+        await setMeta(client, "currentChallenges", JSON.stringify(state.currentChallenges || {}));
         await setMeta(client, "groupMemberIds", JSON.stringify(state.groupMemberIds || []));
         await setMeta(client, "groupRequests", JSON.stringify(state.groupRequests || []));
         await client.query("COMMIT");

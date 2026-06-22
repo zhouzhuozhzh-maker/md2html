@@ -10,6 +10,7 @@ const legacyStorageKeys = [
 let backendAvailable = false;
 let isHydratingFromBackend = false;
 let authMode = "login";
+let toastTimer = null;
 
 const challenges = [
   "今天把缺口率做到 20% 以上",
@@ -49,6 +50,7 @@ function normalizeState(value) {
     groupPeriod: "week",
     groupName: "我的燃脂小组",
     currentChallenge: "",
+    currentChallenges: {},
     completedChallenges: {},
     users: [],
     body: [],
@@ -56,6 +58,8 @@ function normalizeState(value) {
     workouts: [],
     ...value,
     users,
+    currentChallenges: isPlainObject(value.currentChallenges) ? value.currentChallenges : {},
+    completedChallenges: isPlainObject(value.completedChallenges) ? value.completedChallenges : {},
     groupMemberIds,
     groupRequests: normalizeGroupRequests(value.groupRequests)
   };
@@ -63,6 +67,10 @@ function normalizeState(value) {
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeGroupRequests(value) {
@@ -89,6 +97,41 @@ function setSessionUser(userId) {
 function clearSessionUser() {
   state.activeUserId = "";
   localStorage.removeItem(sessionKey);
+}
+
+function setSyncStatus(status, text) {
+  const badge = $("#syncBadge");
+  if (!badge) return;
+  badge.className = `sync-badge ${status}`;
+  badge.textContent = text;
+}
+
+function setAuthStatus(text, status = "info") {
+  const target = $("#authStatus");
+  if (!target) return;
+  target.className = `auth-status ${status}`;
+  target.textContent = text;
+}
+
+function setFormBusy(form, busy, label) {
+  const button = form.querySelector('button[type="submit"]');
+  if (!button) return;
+  if (!button.dataset.defaultText) button.dataset.defaultText = button.textContent;
+  button.disabled = busy;
+  button.textContent = busy ? label : button.dataset.defaultText;
+}
+
+function showToast(text, status = "ok") {
+  let toast = $("#appToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "appToast";
+    document.body.appendChild(toast);
+  }
+  toast.className = `app-toast ${status} show`;
+  toast.textContent = text;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
 function bufferToBase64Url(buffer) {
@@ -180,6 +223,18 @@ function addGroupMember(userId) {
   state.groupMemberIds = unique([...(state.groupMemberIds || []), userId]);
 }
 
+function dailyKey(userId) {
+  return `${userId}:${today}`;
+}
+
+function currentChallengeFor(userId) {
+  return state.currentChallenges?.[dailyKey(userId)] || state.currentChallenge || "";
+}
+
+function setCurrentChallengeFor(userId, challenge) {
+  state.currentChallenges = { ...(state.currentChallenges || {}), [dailyKey(userId)]: challenge };
+}
+
 function mergeStates(remote, local) {
   const remoteState = normalizeState(remote);
   const localState = normalizeState(local);
@@ -192,6 +247,7 @@ function mergeStates(remote, local) {
     groupPeriod: localState.groupPeriod || remoteState.groupPeriod,
     groupName: localState.groupName || remoteState.groupName,
     currentChallenge: localState.currentChallenge || remoteState.currentChallenge,
+    currentChallenges: { ...remoteState.currentChallenges, ...localState.currentChallenges },
     completedChallenges: { ...remoteState.completedChallenges, ...localState.completedChallenges },
     users: [...userMap.values()],
     groupMemberIds: unique([...(remoteState.groupMemberIds || []), ...(localState.groupMemberIds || [])]),
@@ -223,14 +279,21 @@ function saveState() {
   state.groupPeriod ||= "week";
   localStorage.setItem(storageKey, JSON.stringify(state));
   if (backendAvailable && !isHydratingFromBackend) {
+    setSyncStatus("syncing", "同步中");
     persistStateToBackend();
+  } else if (!backendAvailable) {
+    setSyncStatus("warn", "本地保存");
   }
 }
 
 async function hydrateFromBackend(shouldRender = true) {
   try {
+    setSyncStatus("syncing", "同步中");
     const response = await fetch("/api/state", { cache: "no-store" });
-    if (!response.ok) return;
+    if (!response.ok) {
+      setSyncStatus("warn", "同步失败");
+      return;
+    }
     backendAvailable = true;
     const remoteState = normalizeState(await response.json());
     const sessionUserId = loadSessionUserId();
@@ -244,23 +307,29 @@ async function hydrateFromBackend(shouldRender = true) {
     if (JSON.stringify(sharedStatePayload(remoteState)) !== JSON.stringify(sharedStatePayload(mergedState))) {
       await persistStateToBackend();
     }
+    if (!state.activeUserId) authMode = state.users.length > 0 ? "login" : "register";
+    setSyncStatus("ok", "已同步");
     if (shouldRender) renderAll();
   } catch {
     backendAvailable = false;
+    setSyncStatus("warn", "离线");
   }
 }
 
 async function persistStateToBackend() {
   try {
+    setSyncStatus("syncing", "同步中");
     const response = await fetch("/api/state", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(sharedStatePayload())
     });
     backendAvailable = response.ok;
+    setSyncStatus(response.ok ? "ok" : "warn", response.ok ? "已同步" : "同步失败");
     return response.ok;
   } catch {
     backendAvailable = false;
+    setSyncStatus("warn", "离线");
     return false;
   }
 }
@@ -423,6 +492,11 @@ function renderDashboard() {
   const user = activeUser();
   if (!user) return;
   const totals = userTotals(user.id, "day");
+  const hasBody = totals.bmr > 0;
+  const hasFood = state.foods.some((item) => item.userId === user.id && item.date === today);
+  const hasWorkout = state.workouts.some((item) => item.userId === user.id && item.date === today);
+  const hasGroup = isGroupMember(user.id) && groupMembers().length > 1;
+  const completedChallenge = Boolean(state.completedChallenges[`${user.id}:${today}`]);
   $("#dailyHeadline").textContent = totals.bmr
     ? `${user.name} 当前缺口率 ${Math.round(totals.deficitRate * 100)}%`
     : `${user.name} 还没有基础代谢数据`;
@@ -435,6 +509,10 @@ function renderDashboard() {
   $("#todayOut").textContent = totals.burned;
   $("#todayDeficit").textContent = totals.deficit;
   $("#castleWall").style.height = `${Math.min(92, Math.max(20, 20 + totals.deficitRate * 300))}%`;
+  $("#heroActions").innerHTML = hasBody
+    ? `<button class="primary" data-jump="food">拍照记一餐</button><button class="secondary" data-jump="workout">记录一次运动</button><button class="ghost" data-jump="ranking">看赛季榜</button>`
+    : `<button class="primary" data-jump="body">先填基础代谢</button><button class="secondary" data-jump="group">邀请队友</button>`;
+  renderFlowPanel({ hasBody, hasFood, hasWorkout, hasGroup, completedChallenge, totals });
 
   const feed = [
     ...state.foods.filter((item) => item.userId === user.id).map((item) => ({ type: "摄入", title: item.name, kcal: item.calories, date: item.date })),
@@ -449,6 +527,60 @@ function renderDashboard() {
 
   $("#dashboardRanking").innerHTML = rankingRows(rankedUsers("week").slice(0, 5));
   $("#groupBadge").textContent = `${groupMembers().length} 人小组`;
+}
+
+function renderFlowPanel(progress) {
+  const steps = [
+    {
+      done: progress.hasBody,
+      view: "body",
+      title: "基础代谢",
+      detail: progress.hasBody ? `${progress.totals.bmr} kcal，缺口率可计算` : "先录入 BMR，排行榜才有意义"
+    },
+    {
+      done: progress.hasFood,
+      view: "food",
+      title: "今日摄入",
+      detail: progress.hasFood ? `${progress.totals.intake} kcal 已记录` : "拍照或手动记一餐"
+    },
+    {
+      done: progress.hasWorkout,
+      view: "workout",
+      title: "今日运动",
+      detail: progress.hasWorkout ? `${progress.totals.burned} kcal 已消耗` : "Apple 截图或手动录入"
+    },
+    {
+      done: progress.hasGroup,
+      view: "group",
+      title: "小组联机",
+      detail: progress.hasGroup ? `${groupMembers().length} 人正在比拼` : "邀请同事后一起看缺口率"
+    },
+    {
+      done: progress.completedChallenge,
+      view: "game",
+      title: "缺口挑战",
+      detail: progress.completedChallenge ? "今日挑战已完成" : "完成任务拿 +3% 加成"
+    }
+  ];
+  const activeIndex = Math.max(0, steps.findIndex((step) => !step.done));
+
+  $("#flowPanel").innerHTML = `
+    <div class="flow-head">
+      <div>
+        <p class="eyebrow">Daily Loop</p>
+        <h3>今天还差哪一步</h3>
+      </div>
+      <span class="pill">${steps.filter((step) => step.done).length}/${steps.length} 已完成</span>
+    </div>
+    <div class="flow-steps">
+      ${steps.map((step, index) => `
+        <button class="flow-step ${step.done ? "done" : index === activeIndex ? "active" : ""}" data-jump="${step.view}" type="button">
+          <span>${step.done ? "✓" : index + 1}</span>
+          <strong>${escapeHtml(step.title)}</strong>
+          <small>${escapeHtml(step.detail)}</small>
+        </button>
+      `).join("")}
+    </div>`;
 }
 
 function renderBody() {
@@ -667,10 +799,13 @@ function renderGroupBattle() {
 }
 
 function renderGame() {
-  const completed = state.completedChallenges[`${state.activeUserId}:${today}`];
-  const totals = activeUser() ? userTotals(state.activeUserId, "day") : null;
+  const user = activeUser();
+  if (!user) return;
+  const key = dailyKey(user.id);
+  const completed = state.completedChallenges[key];
+  const totals = userTotals(user.id, "day");
   const rateText = totals ? `${Math.round(totals.deficitRate * 100)}%` : "0%";
-  $("#challengeText").textContent = state.currentChallenge || `点击生成一个围绕当前 ${rateText} 缺口率的挑战。`;
+  $("#challengeText").textContent = currentChallengeFor(user.id) || `点击生成一个围绕当前 ${rateText} 缺口率的挑战。`;
   $("#streakPill").textContent = completed ? `已加成 +3%` : "今日待挑战";
 }
 
@@ -706,71 +841,88 @@ function bindEvents() {
 
   $("#registerForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    await hydrateFromBackend(false);
-    const form = new FormData(event.target);
-    const id = String(form.get("id")).trim();
-    const name = String(form.get("name")).trim();
-    const role = String(form.get("role")).trim() || "成员";
-    const password = String(form.get("password") || "");
-    const passwordConfirm = String(form.get("passwordConfirm") || "");
-    const avatar = await readFileAsDataUrl(form.get("avatar"));
-    if (!id || !name || !password) return;
-    if (password !== passwordConfirm) {
-      const confirm = event.target.querySelector('input[name="passwordConfirm"]');
-      confirm.setCustomValidity("两次密码不一致");
-      event.target.reportValidity();
-      return;
+    setFormBusy(event.target, true, "创建中...");
+    setAuthStatus("正在同步账号目录...", "info");
+    try {
+      await hydrateFromBackend(false);
+      const form = new FormData(event.target);
+      const id = String(form.get("id")).trim();
+      const name = String(form.get("name")).trim();
+      const role = String(form.get("role")).trim() || "成员";
+      const password = String(form.get("password") || "");
+      const passwordConfirm = String(form.get("passwordConfirm") || "");
+      const avatar = await readFileAsDataUrl(form.get("avatar"));
+      if (!id || !name || !password) return;
+      if (password !== passwordConfirm) {
+        const confirm = event.target.querySelector('input[name="passwordConfirm"]');
+        confirm.setCustomValidity("两次密码不一致");
+        event.target.reportValidity();
+        return;
+      }
+      if (state.users.some((user) => user.id.toLowerCase() === id.toLowerCase())) {
+        event.target.querySelector('input[name="id"]').setCustomValidity("这个用户 ID 已存在");
+        event.target.reportValidity();
+        return;
+      }
+      event.target.querySelector('input[name="id"]').setCustomValidity("");
+      event.target.querySelector('input[name="passwordConfirm"]').setCustomValidity("");
+      const passwordSalt = randomBase64Url(16);
+      const passwordHash = await hashPassword(password, passwordSalt);
+      state.users.push({ id, name, role, avatar, passwordSalt, passwordHash });
+      if (!(state.groupMemberIds || []).length) addGroupMember(id);
+      setSessionUser(id);
+      saveState();
+      const synced = await persistStateToBackend();
+      setAuthStatus(synced ? "账号已创建并同步。" : "账号已创建，本机可用，网络恢复后会继续同步。", synced ? "ok" : "warn");
+      event.target.reset();
+      renderAll();
+    } finally {
+      setFormBusy(event.target, false);
     }
-    if (state.users.some((user) => user.id.toLowerCase() === id.toLowerCase())) {
-      event.target.querySelector('input[name="id"]').setCustomValidity("这个用户 ID 已存在");
-      event.target.reportValidity();
-      return;
-    }
-    event.target.querySelector('input[name="id"]').setCustomValidity("");
-    event.target.querySelector('input[name="passwordConfirm"]').setCustomValidity("");
-    const passwordSalt = randomBase64Url(16);
-    const passwordHash = await hashPassword(password, passwordSalt);
-    state.users.push({ id, name, role, avatar, passwordSalt, passwordHash });
-    if (!(state.groupMemberIds || []).length) addGroupMember(id);
-    setSessionUser(id);
-    saveState();
-    await persistStateToBackend();
-    event.target.reset();
-    renderAll();
   });
 
   $("#loginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = new FormData(event.target);
-    const id = String(form.get("id") || "").trim();
-    const password = String(form.get("password") || "");
-    const user = state.users.find((item) => item.id.toLowerCase() === id.toLowerCase());
-    if (!user) {
-      const input = event.target.querySelector('input[name="id"]');
-      input.setCustomValidity("没有找到这个账号");
-      event.target.reportValidity();
-      return;
-    }
+    setFormBusy(event.target, true, "登录中...");
+    setAuthStatus("正在读取云端账号...", "info");
+    try {
+      await hydrateFromBackend(false);
+      const form = new FormData(event.target);
+      const id = String(form.get("id") || "").trim();
+      const password = String(form.get("password") || "");
+      const user = state.users.find((item) => item.id.toLowerCase() === id.toLowerCase());
+      if (!user) {
+        const input = event.target.querySelector('input[name="id"]');
+        input.setCustomValidity("没有找到这个账号");
+        event.target.reportValidity();
+        setAuthStatus("没有找到这个账号。确认对方已经完成注册并同步。", "warn");
+        return;
+      }
 
-    event.target.querySelector('input[name="id"]').setCustomValidity("");
-    if (!password) return;
-    const matched = await verifyPassword(user, password);
-    if (!matched) {
-      const input = event.target.querySelector('input[name="password"]');
-      input.setCustomValidity("密码不正确");
-      event.target.reportValidity();
-      return;
-    }
+      event.target.querySelector('input[name="id"]').setCustomValidity("");
+      if (!password) return;
+      const matched = await verifyPassword(user, password);
+      if (!matched) {
+        const input = event.target.querySelector('input[name="password"]');
+        input.setCustomValidity("密码不正确");
+        event.target.reportValidity();
+        setAuthStatus("密码不正确。", "warn");
+        return;
+      }
 
-    inputResetValidity(event.target, 'input[name="password"]');
-    if (!user.passwordHash || !user.passwordSalt) {
-      user.passwordSalt = "legacy";
-      user.passwordHash = await hashPassword(user.id, user.passwordSalt);
+      inputResetValidity(event.target, 'input[name="password"]');
+      if (!user.passwordHash || !user.passwordSalt) {
+        user.passwordSalt = "legacy";
+        user.passwordHash = await hashPassword(user.id, user.passwordSalt);
+        saveState();
+      }
+      setSessionUser(user.id);
+      setAuthStatus("登录成功。", "ok");
       saveState();
+      renderAll();
+    } finally {
+      setFormBusy(event.target, false);
     }
-    setSessionUser(user.id);
-    saveState();
-    renderAll();
   });
 
   $$("#loginForm input").forEach((input) => {
@@ -782,7 +934,11 @@ function bindEvents() {
   });
 
   $$(".nav-item").forEach((item) => item.addEventListener("click", () => switchView(item.dataset.view)));
-  $$("[data-jump]").forEach((item) => item.addEventListener("click", () => switchView(item.dataset.jump)));
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-jump]");
+    if (!trigger) return;
+    switchView(trigger.dataset.jump);
+  });
 
   $("#logoutButton").addEventListener("click", () => {
     clearSessionUser();
@@ -793,6 +949,18 @@ function bindEvents() {
   $("#saveGroupName").addEventListener("click", () => {
     state.groupName = $("#groupName").value.trim() || "我的燃脂小组";
     saveState();
+    renderGroup();
+    showToast("小组名称已保存");
+  });
+
+  $("#refreshUsers").addEventListener("click", async () => {
+    $("#searchResult").textContent = "正在刷新全局用户目录...";
+    await hydrateFromBackend(false);
+    renderGroup();
+    $("#searchResult").textContent = `已刷新，当前数据库里有 ${state.users.length} 个账号。`;
+  });
+
+  $("#userSearch").addEventListener("input", () => {
     renderGroup();
   });
 
@@ -811,6 +979,8 @@ function bindEvents() {
     saveState();
     event.target.reset();
     renderAll();
+    switchView("dashboard");
+    showToast("基础代谢已更新，今日缺口率可以计算了。");
   });
 
   $("#foodForm").addEventListener("submit", async (event) => {
@@ -827,6 +997,7 @@ function bindEvents() {
     saveState();
     event.target.reset();
     renderAll();
+    showToast("摄入记录已保存");
   });
 
   $("#workoutForm").addEventListener("submit", async (event) => {
@@ -843,6 +1014,7 @@ function bindEvents() {
     saveState();
     event.target.reset();
     renderAll();
+    showToast("运动记录已保存");
   });
 
   $("#periodTabs").addEventListener("click", (event) => {
@@ -876,6 +1048,7 @@ function bindEvents() {
     $("#userSearch").value = "";
     saveState();
     renderAll();
+    showToast("邀请已发送");
   });
 
   $("#userDirectory").addEventListener("click", (event) => {
@@ -893,6 +1066,7 @@ function bindEvents() {
     $("#searchResult").textContent = `已向 ${target.name} 发出加入邀请。`;
     saveState();
     renderAll();
+    showToast("邀请已发送");
   });
 
   $("#groupRequests").addEventListener("click", (event) => {
@@ -906,9 +1080,11 @@ function bindEvents() {
       addGroupMember(request.toUserId);
       resolveGroupRequest(requestId, "accepted");
       $("#searchResult").textContent = `${state.users.find((user) => user.id === request.toUserId)?.name || request.toUserId} 已加入小组。`;
+      showToast("已加入小组");
     } else {
       resolveGroupRequest(requestId, "rejected");
       $("#searchResult").textContent = "已拒绝该邀请。";
+      showToast("已拒绝邀请", "warn");
     }
     saveState();
     renderAll();
@@ -925,24 +1101,28 @@ function bindEvents() {
     const totals = userTotals(state.activeUserId, "day");
     const band = totals.deficitRate >= 0.3 ? 4 : totals.deficitRate >= 0.2 ? 3 : totals.deficitRate >= 0.1 ? 2 : 1;
     const pool = challenges.slice(0, Math.min(challenges.length, band + 2));
-    state.currentChallenge = pool[Math.floor(Math.random() * pool.length)];
+    setCurrentChallengeFor(state.activeUserId, pool[Math.floor(Math.random() * pool.length)]);
     saveState();
     renderGame();
+    showToast("已生成今日挑战");
   });
 
   $("#completeChallenge").addEventListener("click", () => {
-    if (!state.currentChallenge) state.currentChallenge = challenges[0];
-    state.completedChallenges[`${state.activeUserId}:${today}`] = state.currentChallenge;
+    if (!currentChallengeFor(state.activeUserId)) setCurrentChallengeFor(state.activeUserId, challenges[0]);
+    state.completedChallenges[dailyKey(state.activeUserId)] = currentChallengeFor(state.activeUserId);
     saveState();
     renderAll();
+    showToast("挑战完成，今日缺口率加成已生效。");
   });
 
   $("#clearToday").addEventListener("click", () => {
     state.foods = state.foods.filter((item) => !(item.userId === state.activeUserId && item.date === today));
     state.workouts = state.workouts.filter((item) => !(item.userId === state.activeUserId && item.date === today));
-    delete state.completedChallenges[`${state.activeUserId}:${today}`];
+    delete state.completedChallenges[dailyKey(state.activeUserId)];
+    delete state.currentChallenges?.[dailyKey(state.activeUserId)];
     saveState();
     renderAll();
+    showToast("今日记录已清空", "warn");
   });
 }
 

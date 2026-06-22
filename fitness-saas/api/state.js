@@ -8,6 +8,7 @@ const emptyState = {
   groupPeriod: "week",
   groupName: "我的燃脂小组",
   currentChallenge: "",
+  currentChallenges: {},
   completedChallenges: {},
   groupMemberIds: [],
   groupRequests: [],
@@ -27,7 +28,8 @@ function normalizeState(state = {}) {
   return {
     ...emptyState,
     ...state,
-    completedChallenges: state.completedChallenges || {},
+    currentChallenges: isPlainObject(state.currentChallenges) ? state.currentChallenges : {},
+    completedChallenges: isPlainObject(state.completedChallenges) ? state.completedChallenges : {},
     groupMemberIds: Array.isArray(state.groupMemberIds) ? [...new Set(state.groupMemberIds.filter(Boolean))] : [],
     groupRequests: normalizeGroupRequests(state.groupRequests),
     users: Array.isArray(state.users) ? state.users : [],
@@ -35,6 +37,10 @@ function normalizeState(state = {}) {
     foods: Array.isArray(state.foods) ? state.foods : [],
     workouts: Array.isArray(state.workouts) ? state.workouts : []
   };
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeGroupRequests(value) {
